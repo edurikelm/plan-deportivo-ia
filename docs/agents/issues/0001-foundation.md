@@ -1,7 +1,12 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Implementado en `fb7c54e` + refactor del hook en commit posterior. Acepto el hook limpio (sentinel string + useSyncExternalStore) por sobre el patrón inicial con `let resolved = false` per-render.
 
 ## What to build
 
