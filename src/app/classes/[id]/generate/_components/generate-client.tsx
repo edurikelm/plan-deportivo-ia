@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Copy, Download, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -59,6 +59,62 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       toast.success("Plan generado y guardado en el historial");
     } catch {
       toast.error("No se pudo generar el plan. Intenta de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleCopy() {
+    if (!result) return;
+    navigator.clipboard.writeText(result.content).then(
+      () => toast.success("Copiado al portapapeles"),
+      () => toast.error("No se pudo copiar"),
+    );
+  }
+
+  function handleExport() {
+    if (!result || !clase) return;
+    const slug = clase.name.toLowerCase().replace(/\s+/g, "-");
+    const date = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+    const filename = `${slug}-${date}.md`;
+    const blob = new Blob([result.content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleRegenerate() {
+    if (!result || !clase) return;
+
+    setBusy(true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clase, focus: result.focus ?? (focus.trim() || undefined) }),
+      });
+
+      const data = (await res.json()) as { ok: boolean; content?: string; model?: string; error?: string };
+
+      if (!data.ok || !data.content) {
+        throw new Error(data.error ?? "Error generando la idea");
+      }
+
+      const updated: Idea = {
+        ...result,
+        content: data.content,
+        model: data.model ?? result.model,
+        createdAt: new Date().toISOString(),
+      };
+
+      addIdea(updated);
+      setResult(updated);
+      toast.success("Plan regenerado y guardado");
+    } catch {
+      toast.error("No se pudo regenerar el plan. Intenta de nuevo.");
     } finally {
       setBusy(false);
     }
@@ -172,6 +228,37 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                   </ReactMarkdown>
                 </div>
               </ScrollArea>
+
+              {/* Action buttons */}
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={handleCopy}
+                  title="Copiar"
+                >
+                  <Copy className="size-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={handleExport}
+                  title="Exportar .md"
+                >
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={handleRegenerate}
+                  title="Regenerar"
+                >
+                  <RefreshCw className="size-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

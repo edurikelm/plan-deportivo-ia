@@ -1,7 +1,18 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Botones agregados al Card de Result en `generate-client.tsx`:
+- `Copy` (clipboard) con toasts éxito/error.
+- `Download` (`Exportar .md`) genera `{slug}-{YYYY-MM-DD}.md` con blob + descarga programática.
+- `RefreshCw` (`Regenerar`) reusa el flujo de POST, autoguarda con `addIdea` y reemplaza el result.
+- Tres disabled cuando `busy`.
+
+Pendiente para #0006: integración del confirm-dialog en Regenerar cuando edit-then-save exista.
 
 ## What to build
 
