@@ -1,7 +1,12 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Smoke test pasado contra la `MINIMAX_API_KEY` real del usuario. El POST a `/api/generate` con una Clase crossfit devolvió markdown razonable (≈900 chars, contiene Skill/Strength/WOD, sin bloques `think`). El filter `stripThinkBlocks()` elimina reasoning tokens. 400 para payload inválido, 500 sin key, 502 upstream. `runtime = 'nodejs'` explícito.
 
 ## What to build
 
