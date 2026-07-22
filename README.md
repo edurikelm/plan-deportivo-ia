@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plan Deportivo IA
 
-## Getting Started
+App minimalista para generar planes de ejercicio deportivo con IA (MiniMax-M3). Sin DB, sin auth: toda la persistencia es local del navegador.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16.2** + React 19.2 + TypeScript 5 (App Router, Turbopack)
+- **Tailwind CSS v4** + **shadcn/ui** (New York / base-nova, neutral)
+- **OpenAI SDK** (compatible con `https://api.minimax.io/v1`) → modelo `MiniMax-M3`
+- **react-markdown** + **remark-gfm** para render del plan
+- Persistencia 100% local (`localStorage`)
+- Lint: `eslint-config-next` (incluye reglas del React Compiler)
+
+## Setup
 
 ```bash
+# 1. Instalar deps
+npm install
+
+# 2. Configurar API key
+# Editá .env.local y poné tu key real:
+#   MINIMAX_API_KEY=tu-key-real-de-platform.minimax.io
+
+# 3. Correr en dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> Tip: `npm run dev -- --port 3737` para usar otro puerto.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estructura
 
-## Learn More
+```
+src/
+├── app/
+│   ├── api/generate/route.ts          # Proxy → MiniMax (oculta API key)
+│   ├── generate/_components/          # Form + result client-side
+│   ├── history/page.tsx
+│   ├── layout.tsx
+│   ├── page.tsx                       # Editor de estructura
+│   └── globals.css
+├── components/
+│   ├── ui/                            # shadcn (11 componentes)
+│   ├── nav.tsx
+│   ├── structure-editor.tsx           # Editor markdown + tabs editor/preview
+│   ├── plan-form.tsx                  # Form de PlanInput
+│   ├── plan-result.tsx                # Render markdown + acciones
+│   └── history-list.tsx
+├── hooks/use-local-storage.ts         # Wrapper con useSyncExternalStore
+└── lib/
+    ├── types.ts                       # PlanInput, GeneratedPlan, etc.
+    ├── minimax.ts                     # Cliente OpenAI SDK → MiniMax
+    ├── build-prompt.ts                # System + user prompt
+    └── storage.ts                     # Helpers localStorage tipados
 
-To learn more about Next.js, take a look at the following resources:
+.agents/skills/      ← 28 skills Matt Pocock + vercel + pproenca
+.opencode/agent/     ← 7 subagentes (orchestrator + 6 subagentes)
+AGENTS.md            ← Protocolo de sesión + routing de delegación
+CONTEXT.md           ← Lenguaje compartido del dominio
+DESIGN.md            ← Sistema de diseño (tokens, paleta, componentes)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Flujo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Estructura** (`/`): el usuario define (una sola vez) la estructura markdown que la IA debe respetar. Se persiste en `localStorage["pd:structure"]`.
+2. **Generar** (`/generate`): form con deporte, nivel, días/sem, duración, objetivos (chips), equipo, notas. Se llama a `/api/generate` que proxea a MiniMax-M3.
+3. **Historial** (`/history`): últimos 20 planes guardados manualmente.
 
-## Deploy on Vercel
+## Subagentes opencode
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+plan-orchestrator  (primary, MiniMax-M3)
+├─ implementer     (MiniMax-M2.7-highspeed, edit+bash)
+├─ architect       (MiniMax-M3, edit deny)
+├─ reviewer        (MiniMax-M3, edit deny)
+├─ tester          (MiniMax-M2.7-highspeed, edit deny)
+├─ explorer        (MiniMax-M2.7-highspeed, edit deny)
+└─ docs-writer     (MiniMax-M2.7-highspeed, edit md only)
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Routing de delegación en `AGENTS.md` (3 niveles según criticidad).
+
+## Scripts
+
+```bash
+npm run dev              # Dev con Turbopack
+npm run build            # Build + typecheck (Next.js 16)
+npm run lint             # ESLint (Next + React Compiler rules)
+npm start                # Production server
+```
+
+## Despliegue
+
+```bash
+# Deploy a Vercel (recomendado)
+vercel deploy
+
+# Recordá setear MINIMAX_API_KEY en Environment Variables del proyecto.
+```
+
+## Licencia
+
+MIT.

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local third-party assets (Matt Pocock skills, templates, etc.)
+    ".agents/**",
   ]),
 ]);
 

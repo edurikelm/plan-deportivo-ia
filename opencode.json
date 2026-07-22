@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "plan-orchestrator",
+  "permission": {
+    "bash": {
+      "git reset --hard*": "deny",
+      "git checkout --*": "deny",
+      "git clean*": "deny",
+      "git push --force*": "deny"
+    }
+  }
+}
