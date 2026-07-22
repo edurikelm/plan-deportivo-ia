@@ -1,26 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Dumbbell, Clock, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Clase } from "@/lib/types";
-import { getClasses } from "@/lib/storage";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
-interface Props {
-  initialClasses: Clase[];
-}
-
-export function ClassesListClient({ initialClasses }: Props) {
-  const [classes, setClasses] = useState(initialClasses);
-
-  useEffect(() => {
-    const handler = () => setClasses(getClasses());
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+export function ClassesListClient() {
+  const [classes] = useLocalStorage<Clase[]>("pd:classes", []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,7 +17,7 @@ export function ClassesListClient({ initialClasses }: Props) {
       <header className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold">Mis Clases</h1>
-              <Button nativeButton={false} render={<Link href="/classes/new" />}>
+          <Button nativeButton={false} render={<Link href="/classes/new" />}>
             <Plus className="size-4" />
             Nueva Clase
           </Button>
@@ -46,7 +35,7 @@ export function ClassesListClient({ initialClasses }: Props) {
                 Todavía no creaste ninguna Clase. Empezá creando Crossfit o la que
                 prefieras.
               </p>
-          <Button nativeButton={false} render={<Link href="/classes/new" />}>
+              <Button nativeButton={false} render={<Link href="/classes/new" />}>
                 <Plus className="size-4" />
                 Nueva Clase
               </Button>
