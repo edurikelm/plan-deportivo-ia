@@ -28,7 +28,7 @@ export function ClassesListClient({ initialClasses }: Props) {
       <header className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold">Mis Clases</h1>
-          <Button render={<Link href="/classes/new" />}>
+              <Button nativeButton={false} render={<Link href="/classes/new" />}>
             <Plus className="size-4" />
             Nueva Clase
           </Button>
@@ -46,7 +46,7 @@ export function ClassesListClient({ initialClasses }: Props) {
                 Todavía no creaste ninguna Clase. Empezá creando Crossfit o la que
                 prefieras.
               </p>
-              <Button render={<Link href="/classes/new" />}>
+          <Button nativeButton={false} render={<Link href="/classes/new" />}>
                 <Plus className="size-4" />
                 Nueva Clase
               </Button>
@@ -72,10 +72,10 @@ export function ClassesListClient({ initialClasses }: Props) {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button variant="outline" size="sm" render={<Link href={`/classes/${clase.id}`} />}>
+                    <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/classes/${clase.id}`} />}>
                       Editar
                     </Button>
-                    <Button variant="secondary" size="sm" render={<Link href={`/classes/${clase.id}/generate`} />}>
+                    <Button variant="secondary" size="sm" nativeButton={false} render={<Link href={`/classes/${clase.id}/generate`} />}>
                       Generar
                     </Button>
                   </div>

@@ -136,6 +136,16 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 ### Metadata
 - Cada layout exporta `metadata`.
 
+### Base UI / Button + Link
+- El preset `base-nova` de shadcn (Next 16 + Tailwind v4 + React 19) usa **Base UI** internamente, no Radix. Esto cambia una convención:
+- El componente `Button` con `render={<Link href="..." />}` **debe** incluir `nativeButton={false}`. Si falta, Base UI tira warning de consola: *"expected a native `<button>` because the `nativeButton` prop is true"*.
+- Patrón correcto:
+  ```tsx
+  <Button nativeButton={false} render={<Link href="/classes">}>Volver</Button>
+  ```
+- El `<Link>` interno provee la navegación y la semántica de ancla (Enter, click, screen readers); `nativeButton={false}` le dice a Base UI "no esperes un `<button>`".
+- Si el Button ejecuta una **acción** (no navegación), usá `<Button onClick={...}>` directamente, sin `render`, y dejá que Base UI use su `<button>` nativo por default.
+
 ## Términos del Dominio
 
 - **Entrenador** — usuario único de la app; dueño de todas las Clases e Ideas.

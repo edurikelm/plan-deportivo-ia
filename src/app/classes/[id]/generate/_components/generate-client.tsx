@@ -154,7 +154,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card">
           <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-            <Button variant="ghost" size="icon" render={<Link href="/classes" />} aria-label="Volver a clases">
+            <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/classes" />} aria-label="Volver a clases">
               <ArrowLeft className="size-4" />
             </Button>
             <h1 className="text-lg font-semibold">Generar Idea</h1>
@@ -164,7 +164,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
           <p className="text-muted-foreground mb-6">
             Esta clase no existe o fue eliminada.
           </p>
-          <Button render={<Link href="/classes" />}>Volver a Mis Clases</Button>
+          <Button nativeButton={false} render={<Link href="/classes" />}>Volver a Mis Clases</Button>
         </main>
       </div>
     );
@@ -175,7 +175,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" render={<Link href="/classes" />} aria-label="Volver a clases">
+          <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/classes" />} aria-label="Volver a clases">
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-lg font-semibold">
