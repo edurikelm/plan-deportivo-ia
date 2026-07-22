@@ -1,7 +1,14 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Implementado y commiteado. Las 4 rutas (`/classes`, `/classes/new`, `/classes/[id]`, redirect `/`) funcionan, con validación inline, Tabs editor/preview con `react-markdown` + `remark-gfm`, delete con `confirm()` y cascade a Ideas via `removeClass`. 
+
+Pendiente menor (no bloqueante): `/classes/[id]/generate` devuelve 404 — esperado porque vive en #0004.
 
 ## What to build
 
