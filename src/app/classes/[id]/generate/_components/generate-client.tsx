@@ -233,9 +233,12 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
         {/* Result Card */}
         {result && (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-4">
               {/* Metadata */}
-              <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  Plan generado
+                </span>
                 <span>{clase.name}</span>
                 <span>{clase.durationMinutes} min</span>
                 <span>
@@ -249,19 +252,17 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                 )}
               </div>
 
-              {/* View mode: rendered markdown */}
+              {/* View mode: rendered markdown — flows naturally, no fixed height */}
               {mode === "view" ? (
                 <>
-                  <ScrollArea className="max-h-96 w-full rounded-md border p-4">
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {editedContent ?? result.content}
-                      </ReactMarkdown>
-                    </div>
-                  </ScrollArea>
+                  <div className="rounded-md border border-border bg-muted/30 p-6 prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {editedContent ?? result.content}
+                    </ReactMarkdown>
+                  </div>
 
                   {/* Action buttons — view mode */}
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
                     <Button
                       size="icon"
                       variant="ghost"
@@ -315,13 +316,13 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                         id="editor"
                         value={editedContent ?? result.content}
                         onChange={(e) => setEditedContent(e.target.value)}
-                        className="font-mono text-sm min-h-64 resize-y"
+                        className="font-mono text-sm min-h-96 resize-y"
                         aria-label="Contenido de la idea"
                       />
                     </div>
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">Vista previa</p>
-                      <ScrollArea className="h-64 w-full rounded-md border p-4">
+                      <ScrollArea className="h-96 w-full rounded-md border p-4">
                         <div className="prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {editedContent ?? result.content}
@@ -332,7 +333,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                   </div>
 
                   {/* Action buttons — edit mode */}
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
                     <Button
                       size="sm"
                       variant="outline"
@@ -353,6 +354,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                     >
                       Cancelar
                     </Button>
+                    <div className="flex-1" />
                     <Button
                       size="icon"
                       variant="ghost"
