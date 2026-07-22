@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Copy, Download, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Download, Loader2, Pencil, RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { addIdea } from "@/lib/storage";
+import { addIdea, updateIdea } from "@/lib/storage";
 import type { Clase, Idea } from "@/lib/types";
 
 interface GenerateClientProps {
@@ -26,6 +27,15 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
   const [focus, setFocus] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Idea | null>(null);
+
+  // Edit mode state
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [editedContent, setEditedContent] = useState<string | null>(null);
+
+  const hasPendingEdit =
+    mode === "edit" &&
+    editedContent !== null &&
+    editedContent !== (result?.content ?? "");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +76,8 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
 
   function handleCopy() {
     if (!result) return;
-    navigator.clipboard.writeText(result.content).then(
+    const text = editedContent ?? result.content;
+    navigator.clipboard.writeText(text).then(
       () => toast.success("Copiado al portapapeles"),
       () => toast.error("No se pudo copiar"),
     );
@@ -77,7 +88,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
     const slug = clase.name.toLowerCase().replace(/\s+/g, "-");
     const date = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
     const filename = `${slug}-${date}.md`;
-    const blob = new Blob([result.content], { type: "text/markdown" });
+    const blob = new Blob([editedContent ?? result.content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -86,8 +97,24 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
     URL.revokeObjectURL(url);
   }
 
+  function handleSave() {
+    if (!result || !hasPendingEdit || editedContent === null) return;
+    const updated: Idea = { ...result, content: editedContent };
+    updateIdea(updated);
+    setResult(updated);
+    setEditedContent(null);
+    setMode("view");
+    toast.success("Idea guardada");
+  }
+
   async function handleRegenerate() {
     if (!result || !clase) return;
+
+    if (hasPendingEdit) {
+      if (!window.confirm("Tenés cambios sin guardar. ¿Descartarlos?")) return;
+      setEditedContent(null);
+      setMode("view");
+    }
 
     setBusy(true);
     try {
@@ -112,6 +139,8 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
 
       addIdea(updated);
       setResult(updated);
+      setEditedContent(null);
+      setMode("view");
       toast.success("Plan regenerado y guardado");
     } catch {
       toast.error("No se pudo regenerar el plan. Intenta de nuevo.");
@@ -125,7 +154,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card">
           <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-            <Button variant="ghost" size="icon" render={<Link href="/classes" />}>
+            <Button variant="ghost" size="icon" render={<Link href="/classes" />} aria-label="Volver a clases">
               <ArrowLeft className="size-4" />
             </Button>
             <h1 className="text-lg font-semibold">Generar Idea</h1>
@@ -146,7 +175,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" render={<Link href="/classes" />}>
+          <Button variant="ghost" size="icon" render={<Link href="/classes" />} aria-label="Volver a clases">
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-lg font-semibold">
@@ -220,45 +249,140 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
                 )}
               </div>
 
-              {/* Markdown content */}
-              <ScrollArea className="max-h-96 w-full rounded-md border p-4">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {result.content}
-                  </ReactMarkdown>
-                </div>
-              </ScrollArea>
+              {/* View mode: rendered markdown */}
+              {mode === "view" ? (
+                <>
+                  <ScrollArea className="max-h-96 w-full rounded-md border p-4">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {editedContent ?? result.content}
+                      </ReactMarkdown>
+                    </div>
+                  </ScrollArea>
 
-              {/* Action buttons */}
-              <div className="mt-4 flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={handleCopy}
-                  title="Copiar"
-                >
-                  <Copy className="size-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={handleExport}
-                  title="Exportar .md"
-                >
-                  <Download className="size-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={handleRegenerate}
-                  title="Regenerar"
-                >
-                  <RefreshCw className="size-4" />
-                </Button>
-              </div>
+                  {/* Action buttons — view mode */}
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleCopy}
+                      aria-label="Copiar"
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleExport}
+                      aria-label="Exportar como markdown"
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleRegenerate}
+                      aria-label="Regenerar"
+                    >
+                      <RefreshCw className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditedContent(result.content);
+                        setMode("edit");
+                      }}
+                      aria-label="Editar"
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Edit mode: textarea + live preview split */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="editor" className="text-xs text-muted-foreground">
+                        Editor
+                      </Label>
+                      <Textarea
+                        id="editor"
+                        value={editedContent ?? result.content}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        className="font-mono text-sm min-h-64 resize-y"
+                        aria-label="Contenido de la idea"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Vista previa</p>
+                      <ScrollArea className="h-64 w-full rounded-md border p-4">
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {editedContent ?? result.content}
+                          </ReactMarkdown>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  {/* Action buttons — edit mode */}
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || !hasPendingEdit}
+                      onClick={handleSave}
+                    >
+                      <Save className="size-4" />
+                      Guardar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditedContent(null);
+                        setMode("view");
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleRegenerate}
+                      aria-label="Regenerar"
+                    >
+                      <RefreshCw className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleCopy}
+                      aria-label="Copiar"
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={handleExport}
+                      aria-label="Exportar como markdown"
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}

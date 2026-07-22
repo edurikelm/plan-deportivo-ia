@@ -37,7 +37,7 @@ export function ClassesListClient({ initialClasses }: Props) {
 
       <main className="mx-auto max-w-3xl px-6 py-8">
         {classes.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center py-16 text-center">
+          <Card className="flex flex-col items-center justify-center py-16 text-center" role="status">
             <CardContent className="flex flex-col items-center gap-4">
               <div className="rounded-full bg-muted p-4">
                 <Dumbbell className="size-8 text-muted-foreground" />

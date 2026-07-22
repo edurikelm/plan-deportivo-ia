@@ -1,7 +1,12 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Edit-then-save toggle funcionando en `generate-client.tsx`: view → edit (split Textarea + preview en desktop, stacked en mobile), `Guardar` solo se habilita con cambios pendientes, persiste vía `updateIdea`. Regenerar pide `window.confirm` si hay edición pendiente, regenera directo si no. Polish: `aria-label` en back buttons, `role="status"` en empty state de `/classes`. Smoke E2E final: 4 rutas en 200, `/api/generate` 200 OK con 1587 chars de markdown crossfit, 0 bloques `think`.
 
 ## What to build
 

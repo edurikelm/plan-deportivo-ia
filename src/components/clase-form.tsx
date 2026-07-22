@@ -101,7 +101,7 @@ export function ClaseForm({ initialClase }: Props) {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" render={<Link href="/classes" />}>
+          <Button variant="ghost" size="icon" render={<Link href="/classes" />} aria-label="Volver a clases">
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-lg font-semibold">
