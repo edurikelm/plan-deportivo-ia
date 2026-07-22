@@ -1,7 +1,14 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-07-22
 ---
+
+## Resultado
+
+Implementado. Server `/classes/[id]/generate/page.tsx` pasa `ideaId` (param) al client `GenerateClient`. El client lee la Clase desde `useLocalStorage<Clase[]>("pd:classes", [])`, maneja form + disabled + overlay con backdrop-blur, autoguarda Idea con `addIdea`, Sonner toasts. Smoke test E2E con la API key real ejecutado: el POST devuelve markdown válido y el HTML del client contiene los componentes esperados.
+
+Nota menor: el componente `generate-client.tsx` está denso (header + form + result + empty-state en uno). Extraer sub-componentes en #0006 si querés.
 
 ## What to build
 

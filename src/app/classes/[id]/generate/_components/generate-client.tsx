@@ -1,0 +1,181 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { addIdea } from "@/lib/storage";
+import type { Clase, Idea } from "@/lib/types";
+
+interface GenerateClientProps {
+  ideaId: string;
+}
+
+export function GenerateClient({ ideaId }: GenerateClientProps) {
+  const [classes] = useLocalStorage<Clase[]>("pd:classes", []);
+  const clase = classes.find((c) => c.id === ideaId) ?? null;
+
+  const [focus, setFocus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<Idea | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!clase) return;
+
+    setBusy(true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clase, focus: focus.trim() || undefined }),
+      });
+
+      const data = (await res.json()) as { ok: boolean; content?: string; model?: string; error?: string };
+
+      if (!data.ok || !data.content) {
+        throw new Error(data.error ?? "Error generando la idea");
+      }
+
+      const idea: Idea = {
+        id: crypto.randomUUID(),
+        classId: clase.id,
+        content: data.content,
+        model: data.model ?? "MiniMax-M3",
+        focus: focus.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      addIdea(idea);
+      setResult(idea);
+      toast.success("Plan generado y guardado en el historial");
+    } catch {
+      toast.error("No se pudo generar el plan. Intenta de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!clase) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card">
+          <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
+            <Button variant="ghost" size="icon" render={<Link href="/classes" />}>
+              <ArrowLeft className="size-4" />
+            </Button>
+            <h1 className="text-lg font-semibold">Generar Idea</h1>
+          </div>
+        </header>
+        <main className="mx-auto max-w-3xl px-6 py-16 text-center">
+          <p className="text-muted-foreground mb-6">
+            Esta clase no existe o fue eliminada.
+          </p>
+          <Button render={<Link href="/classes" />}>Volver a Mis Clases</Button>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
+          <Button variant="ghost" size="icon" render={<Link href="/classes" />}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <h1 className="text-lg font-semibold">
+            Generar Idea — {clase.name}
+          </h1>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-6 py-8 space-y-6">
+        {/* Form Card */}
+        <Card>
+          {/* Loading overlay */}
+          {busy && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-xl pointer-events-none">
+              <Loader2 className="size-8 animate-spin text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Esperando respuesta de la IA&hellip;
+              </p>
+            </div>
+          )}
+
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit}>
+              <fieldset disabled={busy} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="focus">
+                    Foco de la sesi&oacute;n{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      (opcional)
+                    </span>
+                  </Label>
+                  <Input
+                    id="focus"
+                    placeholder="Pecho, piernas, wod larga, técnica…"
+                    value={focus}
+                    onChange={(e) => setFocus(e.target.value)}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Generando plan&hellip; (no se puede interrumpir)
+                    </>
+                  ) : (
+                    "Generar plan"
+                  )}
+                </Button>
+              </fieldset>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Result Card */}
+        {result && (
+          <Card>
+            <CardContent className="pt-6">
+              {/* Metadata */}
+              <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-muted-foreground">
+                <span>{clase.name}</span>
+                <span>{clase.durationMinutes} min</span>
+                <span>
+                  {clase.exercises.length} ejercicio
+                  {clase.exercises.length !== 1 ? "s" : ""}
+                </span>
+                {result.focus && (
+                  <span className="font-medium text-foreground">
+                    Foco: {result.focus}
+                  </span>
+                )}
+              </div>
+
+              {/* Markdown content */}
+              <ScrollArea className="max-h-96 w-full rounded-md border p-4">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {result.content}
+                  </ReactMarkdown>
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+    </div>
+  );
+}
