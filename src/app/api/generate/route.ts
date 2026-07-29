@@ -25,7 +25,7 @@ function validateClase(value: unknown): Clase | null {
     return null;
   if (typeof obj.createdAt !== "string" || !obj.createdAt.trim()) return null;
 
-  if (!Array.isArray(obj.exercises) || obj.exercises.length === 0)
+  if (!Array.isArray(obj.exercises))
     return null;
   if (!obj.exercises.every((e) => typeof e === "string" && e.trim()))
     return null;
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error:
-          "clase is required and must have id, name, structure, exercises (non-empty array), durationMinutes (> 0), and createdAt",
+          "clase is required and must have id, name, structure, exercises (array of non-empty strings), durationMinutes (> 0), and createdAt",
       },
       { status: 400 },
     );
