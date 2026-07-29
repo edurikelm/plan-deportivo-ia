@@ -63,6 +63,7 @@ Foco de hoy (opcional): {session.focus ?? "ninguno"}.
 
 ### Generación
 - **Modelo**: `MiniMax-M3` (default). Configurable vía constante en `lib/minimax.ts`.
+- **Thinking**: explícitamente `disabled`. Prioriza latencia y costo en este flujo, cuya estructura se instruye en el system prompt. `stripThinkBlocks()` queda como defensa ante defaults del proveedor, cambios futuros o migración a modelos M2.x (donde el thinking no se puede desactivar).
 - **temperature**: `0.7`.
 - **max_tokens**: `4096`.
 
