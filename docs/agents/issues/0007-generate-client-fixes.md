@@ -12,6 +12,12 @@ created_at: 2026-07-28
 
 Bugs y regresiones encontrados por el reviewer en el pase "impeccable" sobre `src/app/classes/[id]/generate/_components/generate-client.tsx`. Estos cambios tocan el **contrato de persistencia** y la **semántica de acciones**, así que van en issue aparte del commit estético ya mergeado.
 
+### 0. validateClase rechaza exercises=[] (resuelto en f7fe4fd)
+
+El form, el type `Clase`, el initializer `EMPTY_CLASE` y el brief permiten `exercises: []`. Pero `validateClase` en `src/app/api/generate/route.ts:28` rechazaba con 400 "non-empty array". Resultado: una Clase creada correctamente desde la UI no podía generar Ideas.
+
+**Resuelto** en commit `f7fe4fd`. Validación actual: `exercises` debe ser array, y cada elemento string no-vacío. Verificado con curl (5 casos pasan).
+
 ### 1. Edit-then-save violado (crítico, B1)
 
 `handleSubmit` ejecuta `addIdea(idea)` apenas aterriza el LLM. La salida cruda se persiste antes de que el Entrenador la edite, y el toast miente al decir "Plan generado y guardado". CONTEXT.md:32 y 80-88 son explícitos: "el `content` persistido refleja la versión final editada por el Entrenador".
