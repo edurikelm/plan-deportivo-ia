@@ -5,12 +5,35 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Clase } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 export function ClassesListClient() {
+  const hydrated = useHydrated();
   const [classes] = useLocalStorage<Clase[]>("pd:classes", []);
 
   const empty = classes.length === 0;
   const days = ["L", "M", "M", "J", "V", "S", "D"];
+
+  // Avoid flashing the empty state (pizarra semanal) before localStorage has
+  // been read on the client. The server returns `classes = []` because it
+  // can't see the browser; rendering the empty state immediately would show
+  // the pizarra to users who actually have Clases.
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <header className="status-strip" data-state="idle">
+          <h1 className="font-display italic font-semibold text-lg leading-none tracking-tight">
+            Mis Clases
+          </h1>
+        </header>
+        <main className="mx-auto max-w-3xl px-5 md:px-8 py-10">
+          <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute">
+            Cargando…
+          </p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-canvas">
