@@ -1,17 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowLeft, Copy, Download, Loader2, Pencil, RefreshCw, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Copy, Download, Pencil, RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addIdea, updateIdea } from "@/lib/storage";
 import type { Clase, Idea } from "@/lib/types";
@@ -21,12 +18,18 @@ interface GenerateClientProps {
 }
 
 export function GenerateClient({ ideaId }: GenerateClientProps) {
+  const hydrated = useHydrated();
   const [classes] = useLocalStorage<Clase[]>("pd:classes", []);
   const clase = classes.find((c) => c.id === ideaId) ?? null;
 
   const [focus, setFocus] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Idea | null>(null);
+
+  // Visual / UX state
+  const [elapsed, setElapsed] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Edit mode state
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -36,6 +39,31 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
     mode === "edit" &&
     editedContent !== null &&
     editedContent !== (result?.content ?? "");
+
+  // Cronómetro: ticking mientras busy
+  useEffect(() => {
+    if (!busy) return;
+    const start = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  // Autofoco del editor al entrar en edit mode
+  useEffect(() => {
+    if (mode === "edit" && editorRef.current) {
+      editorRef.current.focus();
+    }
+  }, [mode]);
+
+  // Cleanup del AbortController al desmontar
+  useEffect(() => {
+    const controller = abortRef.current;
+    return () => {
+      controller?.abort();
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -149,244 +177,356 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
     }
   }
 
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+
   if (!clase) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-            <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/classes" />} aria-label="Volver a clases">
+      <div className="min-h-screen bg-canvas">
+        <header className="status-strip" data-state="idle">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              nativeButton={false}
+              render={<Link href="/classes" />}
+              aria-label="Volver a Mis Clases"
+              className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
+            >
               <ArrowLeft className="size-4" />
             </Button>
-            <h1 className="text-lg font-semibold">Generar Idea</h1>
+            <h1 className="font-display italic font-semibold text-lg tracking-tight">
+              Clase no encontrada
+            </h1>
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-6 py-16 text-center">
-          <p className="text-muted-foreground mb-6">
-            Esta clase no existe o fue eliminada.
+        <main className="mx-auto max-w-3xl px-5 md:px-8 py-20">
+          <div className="chalk-card max-w-md">
+            <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
+              Estado · 404
+            </p>
+            <p className="text-bone mb-1">Esta clase no existe o fue eliminada.</p>
+            <p className="text-sm text-mute leading-relaxed mb-6">
+              Volvé a la lista para elegir o crear otra.
+            </p>
+            <Button
+              variant="ghost"
+              nativeButton={false}
+              render={<Link href="/classes" />}
+              className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-bone bg-transparent hover:bg-muted rounded-md h-9 px-4"
+            >
+              Volver a Mis Clases
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Avoid flashing content before localStorage hydrates
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <header className="status-strip" data-state="idle">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              nativeButton={false}
+              render={<Link href="/classes" />}
+              aria-label="Volver a Mis Clases"
+              className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <h1 className="font-display italic font-semibold text-lg leading-none tracking-tight">
+              Generar Idea — {clase.name}
+            </h1>
+          </div>
+        </header>
+        <main className="mx-auto max-w-3xl px-5 md:px-8 py-10">
+          <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute">
+            Cargando…
           </p>
-          <Button nativeButton={false} render={<Link href="/classes" />}>Volver a Mis Clases</Button>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/classes" />} aria-label="Volver a clases">
+    <div className="min-h-screen bg-canvas">
+      {/* Status strip */}
+      <header
+        className="status-strip"
+        data-state={busy ? "active" : "idle"}
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            nativeButton={false}
+            render={<Link href="/classes" />}
+            aria-label="Volver a Mis Clases"
+            className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
+          >
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-lg font-semibold">
-            Generar Idea — {clase.name}
+          <h1 className="font-display italic font-semibold text-lg leading-none tracking-tight truncate">
+            {busy ? "Generando" : `Generar Idea — ${clase.name}`}
           </h1>
         </div>
+        {busy ? (
+          <time
+            dateTime={`PT${minutes}M${seconds}S`}
+            aria-label={`Generando. ${minutes} minutos ${seconds} segundos.`}
+            className="flex items-center gap-2 font-mono tabular-nums"
+          >
+            <span
+              aria-hidden
+              className="font-display italic font-medium text-[0.6875rem] uppercase tracking-[0.16em] text-signal-foreground/70 self-center"
+            >
+              Generando
+            </span>
+            <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
+            <span className="text-2xl leading-none tabular-nums tracking-tight">
+              {String(minutes).padStart(2, "0")}
+            </span>
+            <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
+            <span className="text-2xl leading-none tabular-nums tracking-tight">
+              {String(seconds).padStart(2, "0")}
+            </span>
+          </time>
+        ) : (
+          <Button
+            type="submit"
+            form="generate-form"
+            className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {result ? "Regenerar" : "Generar"}
+          </Button>
+        )}
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-8 space-y-6">
-        {/* Form Card */}
-        <Card>
-          {/* Loading overlay */}
-          {busy && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-xl pointer-events-none">
-              <Loader2 className="size-8 animate-spin text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Esperando respuesta de la IA&hellip;
-              </p>
-            </div>
-          )}
+      <main className="mx-auto max-w-3xl px-5 md:px-8 py-10 space-y-8">
+        {/* Form */}
+        <form id="generate-form" onSubmit={handleSubmit} className="space-y-4">
+          <label
+            htmlFor="focus"
+            className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
+          >
+            Foco de la sesi&oacute;n
+            <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute">
+              (opcional)
+            </span>
+          </label>
+          <Textarea
+            id="focus"
+            placeholder="foco de hoy…"
+            value={focus}
+            onChange={(e) => setFocus(e.target.value)}
+            disabled={busy}
+            className="min-h-32 px-3.5 py-3 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <p className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute">
+            {clase.durationMinutes}
+            <span className="ml-1 text-mute">MIN</span>
+            <span className="mx-2 text-hairline-strong">·</span>
+            {clase.exercises.length}
+            <span className="ml-1 text-mute">EJ</span>
+            <span className="mx-2 text-hairline-strong">·</span>
+            {clase.structure
+              ? clase.structure.split("\n").filter((l) => l.trim()).length
+              : 0}
+            <span className="ml-1 text-mute">BLOQUES</span>
+          </p>
+        </form>
 
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit}>
-              <fieldset disabled={busy} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="focus">
-                    Foco de la sesi&oacute;n{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      (opcional)
-                    </span>
-                  </Label>
-                  <Input
-                    id="focus"
-                    placeholder="Pecho, piernas, wod larga, técnica…"
-                    value={focus}
-                    onChange={(e) => setFocus(e.target.value)}
-                  />
+        {/* Result card */}
+        {result && (
+          <article
+            className="chalk-card chalk-card-reveal"
+            data-edit={mode === "edit"}
+            aria-labelledby="idea-title"
+          >
+            {/* Card header */}
+            <header
+              aria-label="Encabezado de la idea"
+              className="flex items-start justify-between gap-4 pb-3 border-b border-hairline"
+            >
+              <div className="min-w-0">
+                <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-1">
+                  {result.model} · {clase.name}
+                </p>
+                <h2
+                  id="idea-title"
+                  className="font-display italic font-semibold text-2xl md:text-[1.875rem] leading-[1.1] tracking-tight text-bone line-clamp-3 break-words"
+                >
+                  {result.focus ? result.focus : "Idea sin foco"}
+                </h2>
+              </div>
+              <div className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute text-right shrink-0">
+                <div className="text-bone">
+                  {new Date(result.createdAt).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "2-digit",
+                  })}
+                </div>
+                <div className="mt-1">ID {result.id.slice(0, 6)}</div>
+              </div>
+            </header>
+
+            {/* View mode */}
+            {mode === "view" ? (
+              <>
+                <div className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:font-display prose-h3:not-italic prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none prose-li:my-1 prose-p:my-3 prose-headings:mt-5 prose-headings:mb-2">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {editedContent ?? result.content}
+                  </ReactMarkdown>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={busy}>
-                  {busy ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Generando plan&hellip; (no se puede interrumpir)
-                    </>
-                  ) : (
-                    "Generar plan"
-                  )}
-                </Button>
-              </fieldset>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Result Card */}
-        {result && (
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              {/* Metadata */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  Plan generado
-                </span>
-                <span>{clase.name}</span>
-                <span>{clase.durationMinutes} min</span>
-                <span>
-                  {clase.exercises.length} ejercicio
-                  {clase.exercises.length !== 1 ? "s" : ""}
-                </span>
-                {result.focus && (
-                  <span className="font-medium text-foreground">
-                    Foco: {result.focus}
-                  </span>
-                )}
-              </div>
-
-              {/* View mode: rendered markdown — flows naturally, no fixed height */}
-              {mode === "view" ? (
-                <>
-                  <div className="rounded-md border border-border bg-muted/30 p-6 prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {editedContent ?? result.content}
-                    </ReactMarkdown>
+                {/* View-mode actions */}
+                <footer
+                  aria-label="Acciones de la idea"
+                  className="mt-6 pt-4 border-t border-hairline flex flex-wrap items-center gap-2"
+                >
+                  <Button
+                    variant="ghost"
+                    onClick={handleCopy}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Copiar"
+                  >
+                    <Copy className="size-3.5" />
+                    Copiar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleExport}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Exportar como markdown"
+                  >
+                    <Download className="size-3.5" />
+                    Exportar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleRegenerate}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Regenerar"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    Regenerar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditedContent(result.content);
+                      setMode("edit");
+                    }}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Editar"
+                  >
+                    <Pencil className="size-3.5" />
+                    Editar
+                  </Button>
+                </footer>
+              </>
+            ) : (
+              <>
+                {/* Edit mode: split editor + preview */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
+                      Editor
+                    </p>
+                    <Textarea
+                      id="editor"
+                      ref={editorRef}
+                      value={editedContent ?? result.content}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      disabled={busy}
+                      className="min-h-96 px-3.5 py-3 bg-transparent border border-hairline rounded-sm text-bone font-mono text-sm leading-relaxed focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 resize-y"
+                      aria-label="Contenido de la idea"
+                    />
                   </div>
-
-                  {/* Action buttons — view mode */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-border">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleCopy}
-                      aria-label="Copiar"
-                    >
-                      <Copy className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleExport}
-                      aria-label="Exportar como markdown"
-                    >
-                      <Download className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleRegenerate}
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setEditedContent(result.content);
-                        setMode("edit");
-                      }}
-                      aria-label="Editar"
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Edit mode: textarea + live preview split */}
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="editor" className="text-xs text-muted-foreground">
-                        Editor
-                      </Label>
-                      <Textarea
-                        id="editor"
-                        value={editedContent ?? result.content}
-                        onChange={(e) => setEditedContent(e.target.value)}
-                        className="font-mono text-sm min-h-96 resize-y"
-                        aria-label="Contenido de la idea"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Vista previa</p>
-                      <ScrollArea className="h-96 w-full rounded-md border p-4">
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {editedContent ?? result.content}
-                          </ReactMarkdown>
-                        </div>
-                      </ScrollArea>
+                  <div className="space-y-2">
+                    <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
+                      Vista previa
+                    </p>
+                    <div className="min-h-96 w-full border border-hairline rounded-sm px-4 py-3 overflow-auto">
+                      <div className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {editedContent ?? result.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Action buttons — edit mode */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-border">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || !hasPendingEdit}
-                      onClick={handleSave}
-                    >
-                      <Save className="size-4" />
-                      Guardar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setEditedContent(null);
-                        setMode("view");
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                    <div className="flex-1" />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleRegenerate}
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleCopy}
-                      aria-label="Copiar"
-                    >
-                      <Copy className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={handleExport}
-                      aria-label="Exportar como markdown"
-                    >
-                      <Download className="size-4" />
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                {/* Edit-mode actions */}
+                <footer
+                  aria-label="Acciones de la idea"
+                  className="mt-6 pt-4 border-t border-hairline flex flex-wrap items-center gap-2"
+                >
+                  <Button
+                    onClick={handleSave}
+                    disabled={busy || !hasPendingEdit}
+                    className="font-sans text-xs font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="size-3.5" />
+                    Guardar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditedContent(null);
+                      setMode("view");
+                    }}
+                    disabled={busy}
+                    className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone bg-transparent hover:bg-muted rounded-md h-8 px-3"
+                  >
+                    Cancelar
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    variant="ghost"
+                    onClick={handleRegenerate}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Regenerar"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    Regenerar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleCopy}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Copiar"
+                  >
+                    <Copy className="size-3.5" />
+                    Copiar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleExport}
+                    disabled={busy}
+                    className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                    aria-label="Exportar como markdown"
+                  >
+                    <Download className="size-3.5" />
+                    Exportar
+                  </Button>
+                </footer>
+              </>
+            )}
+          </article>
         )}
       </main>
     </div>
