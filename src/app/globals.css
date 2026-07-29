@@ -5,40 +5,66 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  Plan Deportivo IA — Visual world: pizarra de jugadas / notacional coaching.
+  Dark-first. Single signal color: turf-marking pitch green. Hairlines, no glow.
+  Seed: 37ffbbb9 (operate). See DESIGN.md for the directional contract.
+*/
+
 @theme inline {
+  /* shadcn-compat */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Voice tokens (declared for utility access, not shadcn-mapped) */
+  --color-signal: var(--primary);
+  --color-signal-foreground: var(--primary-foreground);
+  --color-bone: var(--foreground);
+  --color-canvas: var(--background);
+  --color-panel: var(--card);
+  --color-panel-foreground: var(--card-foreground);
+  --color-hairline: var(--border);
+  --color-mute: var(--muted-foreground);
+
+  /* Type */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
+  --font-display: var(--font-archivo-narrow);
+
+  /* Radius — sharp, paper-like; chalk cards use rounded-none explicitly */
+  --radius: 0.25rem;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,63 +74,101 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+  Dark-first defaults. `:root` carries the dark palette so every visit lands on
+  the visual world the brief asked for. The `.dark` selector mirrors it; theme
+  toggles that flip the class don't change the look by design.
+*/
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Canvas — matte, cold black, slightly cooler than neutral */
+  --background: oklch(0.13 0.005 270);
+  --foreground: oklch(0.96 0.005 80);
+
+  /* Panels — chalk-card surface, just one notch above canvas */
+  --card: oklch(0.18 0.008 270);
+  --card-foreground: oklch(0.96 0.005 80);
+  --popover: oklch(0.20 0.008 270);
+  --popover-foreground: oklch(0.96 0.005 80);
+
+  /* Signal — turf-marking pitch green; the only saturated color in the system */
+  --primary: oklch(0.91 0.27 130);
+  --primary-foreground: oklch(0.13 0.005 270);
+
+  /* Secondary — panel-one-step-up, low chroma */
+  --secondary: oklch(0.22 0.006 270);
+  --secondary-foreground: oklch(0.96 0.005 80);
+
+  /* Muted — alternative panel, used for dimmed type */
+  --muted: oklch(0.22 0.006 270);
+  --muted-foreground: oklch(0.62 0.005 80);
+
+  /* Accent — faint signal tint, never decoration */
+  --accent: oklch(0.91 0.27 130 / 14%);
+  --accent-foreground: oklch(0.96 0.005 80);
+
+  /* Destructive — sporty red, used sparingly */
+  --destructive: oklch(0.66 0.20 25);
+  --destructive-foreground: oklch(0.96 0.005 80);
+
+  /* Hairlines — 1px borders; the canvas's own edge */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.91 0.27 130);
+
+  /* Sidebar parity — used by shadcn primitives only; not part of MVP layout */
+  --sidebar: oklch(0.16 0.005 270);
+  --sidebar-foreground: oklch(0.96 0.005 80);
+  --sidebar-primary: oklch(0.91 0.27 130);
+  --sidebar-primary-foreground: oklch(0.13 0.005 270);
+  --sidebar-accent: oklch(0.22 0.006 270);
+  --sidebar-accent-foreground: oklch(0.96 0.005 80);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.91 0.27 130);
+
+  /* Charts — restrained ramp; not used in MVP but reserved */
+  --chart-1: oklch(0.91 0.27 130);
+  --chart-2: oklch(0.78 0.16 130);
+  --chart-3: oklch(0.66 0.20 25);
+  --chart-4: oklch(0.96 0.005 80);
+  --chart-5: oklch(0.62 0.005 80);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* Mirror `:root` — the world is dark-first by design */
+  --background: oklch(0.13 0.005 270);
+  --foreground: oklch(0.96 0.005 80);
+  --card: oklch(0.18 0.008 270);
+  --card-foreground: oklch(0.96 0.005 80);
+  --popover: oklch(0.20 0.008 270);
+  --popover-foreground: oklch(0.96 0.005 80);
+  --primary: oklch(0.91 0.27 130);
+  --primary-foreground: oklch(0.13 0.005 270);
+  --secondary: oklch(0.22 0.006 270);
+  --secondary-foreground: oklch(0.96 0.005 80);
+  --muted: oklch(0.22 0.006 270);
+  --muted-foreground: oklch(0.62 0.005 80);
+  --accent: oklch(0.91 0.27 130 / 14%);
+  --accent-foreground: oklch(0.96 0.005 80);
+  --destructive: oklch(0.66 0.20 25);
+  --destructive-foreground: oklch(0.96 0.005 80);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.91 0.27 130);
+
+  --sidebar: oklch(0.16 0.005 270);
+  --sidebar-foreground: oklch(0.96 0.005 80);
+  --sidebar-primary: oklch(0.91 0.27 130);
+  --sidebar-primary-foreground: oklch(0.13 0.005 270);
+  --sidebar-accent: oklch(0.22 0.006 270);
+  --sidebar-accent-foreground: oklch(0.96 0.005 80);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.91 0.27 130);
+
+  --chart-1: oklch(0.91 0.27 130);
+  --chart-2: oklch(0.78 0.16 130);
+  --chart-3: oklch(0.66 0.20 25);
+  --chart-4: oklch(0.96 0.005 80);
+  --chart-5: oklch(0.62 0.005 80);
 }
 
 @layer base {
@@ -113,8 +177,85 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
   html {
     @apply font-sans;
+    color-scheme: dark;
+  }
+
+  /* Display utility — applied via className="font-display" */
+  .font-display {
+    font-family: var(--font-display);
+    font-feature-settings: "ss01", "cv11";
+    letter-spacing: -0.015em;
+  }
+
+  /* Tabular numerals for any time/count display */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv11";
+  }
+}
+
+@layer utilities {
+  /* Chalk-card: square edges, hairline border, no shadow, no glow */
+  .chalk-card {
+    background-color: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: 0;
+    padding: 1.25rem;
+    position: relative;
+    transition: border-left-color 150ms ease;
+  }
+  .chalk-card[data-edit="true"] {
+    border-left: 1px solid var(--primary);
+  }
+
+  /* Chalk-card arrival — single authored reveal (140ms settle) when the LLM result lands. */
+  @keyframes chalk-card-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .chalk-card-reveal {
+    animation: chalk-card-reveal 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* Status strip — pasiva / activa is the one orchestrated motion */
+  .status-strip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    background-color: var(--background);
+    color: var(--foreground);
+    border-bottom: 1px solid var(--border);
+    transition: background-color 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                color 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .status-strip[data-state="active"] {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .status-strip[data-state="active"] .ds-strip-cta {
+    border-color: currentColor;
+  }
+
+  /* WCAG 2.3.3 — transition off only when motion is acceptable to keep; off
+     entirely under prefers-reduced-motion. The state change (signal fill vs
+     canvas) still happens instantly, which preserves hierarchy. */
+  @media (prefers-reduced-motion: reduce) {
+    .status-strip {
+      transition: none;
+    }
   }
 }

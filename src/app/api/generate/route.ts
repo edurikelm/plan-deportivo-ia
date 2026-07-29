@@ -3,6 +3,10 @@ import { generateIdea } from "@/lib/minimax";
 import type { Clase } from "@/lib/types";
 
 export const runtime = "nodejs";
+// Server-side hard cap on the route: Next.js will respond 504 after 90s.
+// The client enforces a softer 60s timeout; this is the safety net so a
+// stuck upstream call doesn't pin the route forever.
+export const maxDuration = 90;
 
 interface GenerateBody {
   clase: unknown;

@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-25T00:00:00.000Z",
+  "title": "Design System: Plan Deportivo IA",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Matte Canvas",
+        "canonical": "oklch(0.13 0.005 270)",
+        "tonalRamp": [
+          "oklch(0.95 0.003 270)",
+          "oklch(0.85 0.003 270)",
+          "oklch(0.70 0.004 270)",
+          "oklch(0.55 0.004 270)",
+          "oklch(0.40 0.005 270)",
+          "oklch(0.27 0.005 270)",
+          "oklch(0.18 0.008 270)",
+          "oklch(0.10 0.005 270)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Chalkboard Panel",
+        "canonical": "oklch(0.18 0.008 270)",
+        "tonalRamp": [
+          "oklch(0.95 0.005 270)",
+          "oklch(0.85 0.005 270)",
+          "oklch(0.70 0.006 270)",
+          "oklch(0.55 0.007 270)",
+          "oklch(0.40 0.007 270)",
+          "oklch(0.27 0.008 270)",
+          "oklch(0.20 0.008 270)",
+          "oklch(0.13 0.008 270)"
+        ]
+      },
+      "bone": {
+        "role": "neutral",
+        "displayName": "Bone White",
+        "canonical": "oklch(0.96 0.005 80)",
+        "tonalRamp": [
+          "oklch(0.98 0.004 80)",
+          "oklch(0.93 0.005 80)",
+          "oklch(0.85 0.005 80)",
+          "oklch(0.76 0.005 80)",
+          "oklch(0.68 0.005 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.40 0.005 80)",
+          "oklch(0.25 0.005 80)"
+        ]
+      },
+      "signal": {
+        "role": "primary",
+        "displayName": "Turf Signal",
+        "canonical": "oklch(0.91 0.27 130)",
+        "tonalRamp": [
+          "oklch(0.98 0.04 130)",
+          "oklch(0.94 0.18 130)",
+          "oklch(0.88 0.30 130)",
+          "oklch(0.78 0.30 130)",
+          "oklch(0.65 0.26 130)",
+          "oklch(0.50 0.20 130)",
+          "oklch(0.36 0.14 130)",
+          "oklch(0.22 0.08 130)"
+        ]
+      },
+      "signal-deep": {
+        "role": "primary",
+        "displayName": "Turf Signal Deep",
+        "canonical": "oklch(0.78 0.16 130)",
+        "tonalRamp": [
+          "oklch(0.96 0.04 130)",
+          "oklch(0.90 0.14 130)",
+          "oklch(0.82 0.20 130)",
+          "oklch(0.72 0.20 130)",
+          "oklch(0.60 0.18 130)",
+          "oklch(0.45 0.14 130)",
+          "oklch(0.32 0.10 130)",
+          "oklch(0.20 0.06 130)"
+        ]
+      },
+      "mute": {
+        "role": "neutral",
+        "displayName": "Mute",
+        "canonical": "oklch(0.62 0.005 80)",
+        "tonalRamp": [
+          "oklch(0.96 0.005 80)",
+          "oklch(0.85 0.005 80)",
+          "oklch(0.74 0.005 80)",
+          "oklch(0.62 0.005 80)",
+          "oklch(0.50 0.005 80)",
+          "oklch(0.38 0.005 80)",
+          "oklch(0.26 0.005 80)",
+          "oklch(0.15 0.005 80)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(1 0 0 / 10%)",
+        "tonalRamp": [
+          "oklch(1 0 0 / 5%)",
+          "oklch(1 0 0 / 10%)",
+          "oklch(1 0 0 / 18%)",
+          "oklch(1 0 0 / 32%)",
+          "oklch(1 0 0 / 48%)",
+          "oklch(1 0 0 / 64%)",
+          "oklch(1 0 0 / 80%)",
+          "oklch(1 0 0 / 100%)"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "oklch(1 0 0 / 18%)",
+        "tonalRamp": [
+          "oklch(1 0 0 / 8%)",
+          "oklch(1 0 0 / 14%)",
+          "oklch(1 0 0 / 22%)",
+          "oklch(1 0 0 / 36%)",
+          "oklch(1 0 0 / 52%)",
+          "oklch(1 0 0 / 68%)",
+          "oklch(1 0 0 / 84%)",
+          "oklch(1 0 0 / 100%)"
+        ]
+      },
+      "destructive": {
+        "role": "semantic",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(0.66 0.20 25)",
+        "tonalRamp": [
+          "oklch(0.96 0.04 25)",
+          "oklch(0.88 0.10 25)",
+          "oklch(0.78 0.16 25)",
+          "oklch(0.66 0.20 25)",
+          "oklch(0.54 0.18 25)",
+          "oklch(0.42 0.14 25)",
+          "oklch(0.30 0.10 25)",
+          "oklch(0.18 0.06 25)"
+        ]
+      },
+      "popover": {
+        "role": "neutral",
+        "displayName": "Popover Surface",
+        "canonical": "oklch(0.20 0.008 270)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (Archivo Narrow)",
+        "purpose": "Títulos de Idea, nombre de Clase en status strip, encabezados de chalk card."
+      },
+      "body": {
+        "displayName": "Body (Inter)",
+        "purpose": "Todo el texto UI funcional, formularios, ayuda."
+      },
+      "mono": {
+        "displayName": "Mono tabular (Geist Mono)",
+        "purpose": "Numerales visibles al usuario: cargas, tiempo, IDs, conteos, markdown crudo."
+      }
+    },
+    "shadows": [
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "Sin sombra por defecto en el sistema. La profundidad se construye con luminosidad, no con sombra."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-strip",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Transición de la status strip (pasiva → activa → pasiva). Única transición orquestada."
+      },
+      {
+        "name": "duration-strip",
+        "value": "200ms",
+        "purpose": "Tiempo de transición de la status strip."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Status Strip",
+      "kind": "custom",
+      "refersTo": "status-strip",
+      "description": "Navegación primaria fija arriba. Lleva el nombre de la Clase y la píldora de acción. Cambia de estado al Generar.",
+      "html": "<div class=\"ds-status-strip\" data-state=\"idle\"><div class=\"ds-status-name\">Crossfit</div><div class=\"ds-status-actions\"><button class=\"ds-strip-cta\" type=\"button\"><span>GENERAR</span></button></div></div>",
+      "css": ".ds-status-strip { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.875rem 1.25rem; background: #0A0B0D; color: #F5F4F0; border-bottom: 1px solid rgba(255,255,255,0.10); transition: background-color 200ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1); } .ds-status-strip[data-state=\"active\"] { background: #C7F23A; color: #0A0B0D; } .ds-status-name { font-family: \"Archivo Narrow\", sans-serif; font-weight: 600; font-size: 1.125rem; letter-spacing: -0.015em; font-style: italic; } .ds-status-actions { display: flex; align-items: center; gap: 0.5rem; } .ds-strip-cta { background: transparent; color: inherit; padding: 0.5rem 0.75rem; border: 1px solid currentColor; font-family: \"Inter\", sans-serif; font-weight: 600; font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 4px; cursor: pointer; transition: background-color 150ms ease; } .ds-strip-cta:hover { background: rgba(255,255,255,0.08); } .ds-status-strip[data-state=\"active\"] .ds-strip-cta:hover { background: rgba(10,11,13,0.10); }"
+    },
+    {
+      "name": "Chalk Card",
+      "kind": "card",
+      "refersTo": "chalk-card",
+      "description": "Contenedor canónico de Ideas y resultados. Cuadrado, hairline, sin sombra. Es papel, no botón.",
+      "html": "<article class=\"ds-chalk-card\"><header class=\"ds-chalk-card-head\"><h3 class=\"ds-chalk-card-title\">Snatch & Wall Ball — 32 min</h3></header><div class=\"ds-chalk-card-body\"><p class=\"ds-chalk-card-prose\">Warm-up: movilidad de cadera 5 min, dos rondas de inchworm + spiderman lunge…</p></div><footer class=\"ds-chalk-card-foot\"><button class=\"ds-action-btn\" type=\"button\">Copiar</button><button class=\"ds-action-btn\" type=\"button\">Exportar</button><button class=\"ds-action-btn\" type=\"button\">Regenerar</button></footer></article>",
+      "css": ".ds-chalk-card { background: #13151A; color: #F5F4F0; border: 1px solid rgba(255,255,255,0.10); border-radius: 0; padding: 1.25rem; transition: border-left-color 150ms ease; } .ds-chalk-card[data-edit=\"true\"] { border-left: 1px solid #C7F23A; } .ds-chalk-card-head { margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.10); } .ds-chalk-card-title { font-family: \"Archivo Narrow\", sans-serif; font-weight: 600; font-size: 1.5rem; letter-spacing: -0.015em; font-style: italic; line-height: 1.05; color: #F5F4F0; margin: 0; } .ds-chalk-card-body { font-family: \"Inter\", sans-serif; font-size: 0.9375rem; line-height: 1.55; color: #F5F4F0; } .ds-chalk-card-body p { margin: 0 0 0.875rem; max-width: 65ch; } .ds-chalk-card-body code, .ds-chalk-card-body .tabular { font-family: \"Geist Mono\", monospace; font-variant-numeric: tabular-nums; } .ds-chalk-card-foot { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.10); display: flex; gap: 0.5rem; flex-wrap: wrap; } .ds-action-btn { background: transparent; color: #9B9B97; border: none; padding: 0.375rem 0.625rem; font-family: \"Inter\", sans-serif; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; border-radius: 4px; cursor: pointer; transition: color 150ms ease, background-color 150ms ease; display: inline-flex; align-items: center; gap: 0.375rem; } .ds-action-btn:hover { color: #F5F4F0; background: rgba(255,255,255,0.04); } .ds-action-btn:focus-visible { outline: 1px solid #C7F23A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Button Primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción primaria dominante en una pantalla. Relleno verde señal, texto canvas. Apenas suavizado (4px).",
+      "html": "<button class=\"ds-btn-primary\" type=\"submit\">GENERAR</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.875rem 1.25rem; background: #C7F23A; color: #0A0B0D; border: 1px solid #C7F23A; border-radius: 4px; font-family: \"Inter\", sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; cursor: pointer; transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease; min-height: 2.5rem; } .ds-btn-primary:hover { background: #97C429; border-color: #97C429; } .ds-btn-primary:focus-visible { outline: 1px solid #C7F23A; outline-offset: 3px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Button Ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Acción terciaria o inline. Sin fill, sin border visible. Sube a bg-muted en hover. Es la elección de las acciones de la chalk card.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">Cancelar</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; padding: 0.5rem 0.625rem; background: transparent; color: #F5F4F0; border: none; border-radius: 4px; font-family: \"Inter\", sans-serif; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background-color 150ms ease, color 150ms ease; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.06); } .ds-btn-ghost:focus-visible { outline: 1px solid #C7F23A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Input/textarea del sistema. Hairline border, sin radius, focus ring signal.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"focus\">FOCO DE LA SESIÓN</label><input class=\"ds-input\" id=\"focus\" type=\"text\" placeholder=\"Pecho, piernas, wod larga, técnica…\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 0.5rem; } .ds-field-label { font-family: \"Inter\", sans-serif; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: #9B9B97; } .ds-input { display: block; width: 100%; padding: 0.75rem 0.875rem; background: transparent; color: #F5F4F0; border: 1px solid rgba(255,255,255,0.12); border-radius: 2px; font-family: \"Inter\", sans-serif; font-size: 0.9375rem; line-height: 1.5; outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; } .ds-input::placeholder { color: #6E6E6B; } .ds-input:hover { border-color: rgba(255,255,255,0.24); } .ds-input:focus { border-color: #C7F23A; box-shadow: 0 0 0 3px rgba(199,242,58,0.18); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Exercise Badge",
+      "kind": "chip",
+      "refersTo": "badge-exercise",
+      "description": "Chip outline-only para ejercicios del pool. Clickable cuando se permite el toggle. Sin fill en estado pasivo.",
+      "html": "<button class=\"ds-ex-badge\" type=\"button\">Front Squat</button>",
+      "css": ".ds-ex-badge { display: inline-flex; align-items: center; padding: 0.1875rem 0.5rem; background: transparent; color: #9B9B97; border: 1px solid rgba(255,255,255,0.10); border-radius: 2px; font-family: \"Geist Mono\", monospace; font-size: 0.75rem; letter-spacing: 0; cursor: pointer; transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease; } .ds-ex-badge:hover { color: #F5F4F0; border-color: rgba(255,255,255,0.24); } .ds-ex-badge[data-selected=\"true\"] { background: #C7F23A; color: #0A0B0D; border-color: #C7F23A; } .ds-ex-badge:focus-visible { outline: 1px solid #C7F23A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Clase Card",
+      "kind": "card",
+      "refersTo": "clase-card",
+      "description": "Card de la lista de Clases. Hairline, cuadrada, layout horizontal denso con metadatos en mono tabular.",
+      "html": "<article class=\"ds-clase-card\"><header class=\"ds-clase-card-head\"><h3 class=\"ds-clase-card-name\">Crossfit</h3><div class=\"ds-clase-card-meta\"><span class=\"tabular\">60 MIN</span><span aria-hidden=\"true\">·</span><span class=\"tabular\">24 EJERCICIOS</span></div></header><div class=\"ds-clase-card-foot\"><div class=\"ds-ex-badge-row\"><span class=\"ds-ex-badge\">Front Squat</span><span class=\"ds-ex-badge\">Wall Ball</span><span class=\"ds-ex-badge\">Box Jump</span><span class=\"ds-ex-badge\">Deadlift</span></div><div class=\"ds-clase-card-actions\"><a class=\"ds-clase-action\" href=\"/classes/c-1234\">Editar</a><a class=\"ds-clase-action ds-clase-action-primary\" href=\"/classes/c-1234/generate\">Generar →</a></div></div></article>",
+      "css": ".ds-clase-card { display: block; background: #13151A; color: #F5F4F0; border: 1px solid rgba(255,255,255,0.10); border-radius: 0; padding: 1.25rem; } .ds-clase-card:hover { border-color: rgba(255,255,255,0.20); } .ds-clase-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.875rem; } .ds-clase-card-name { font-family: \"Archivo Narrow\", sans-serif; font-weight: 600; font-style: italic; font-size: 1.5rem; letter-spacing: -0.015em; line-height: 1; color: #F5F4F0; margin: 0; } .ds-clase-card-meta { font-family: \"Geist Mono\", monospace; font-variant-numeric: tabular-nums; font-size: 0.75rem; color: #9B9B97; letter-spacing: 0.04em; display: inline-flex; align-items: center; gap: 0.5rem; } .ds-clase-card-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-top: 0.875rem; border-top: 1px solid rgba(255,255,255,0.10); } .ds-ex-badge-row { display: flex; flex-wrap: wrap; gap: 0.375rem; } .ds-clase-card-actions { display: inline-flex; align-items: center; gap: 0.875rem; } .ds-clase-action { font-family: \"Inter\", sans-serif; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: #9B9B97; text-decoration: none; padding: 0.375rem 0; transition: color 150ms ease; } .ds-clase-action:hover { color: #F5F4F0; } .ds-clase-action-primary { color: #C7F23A; } .ds-clase-action-primary:hover { color: #97C429; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Coach's Chalkboard",
+    "overview": "Plan Deportivo IA no le entrega al Entrenador una burbuja de chat ni una terminal oscura. Le entrega una pizarra: una superficie de tono papel-negro donde cada Idea es una hoja que el coach firma con un marcador de tiza antes de bajarla al gym. La identidad visual rechaza tres categorías de default: (a) el chat-asistente con badges \"pensando…\", (b) el dark-utility-console con tipografía mono y neon que pretende ser \"deportivo\" por cliché, (c) la papelería cream con serif editorial que un brief deportivo tampoco pidió. La pantalla entera está construida con una sola restricción que el coach nunca pierde de vista: un único color señal (verde césped a la frecuencia del marcado de cancha) aparece sólo donde algo le pide al coach que actúe o que confirme que algo está pasando. El resto es jerarquía de luminosidad: matte canvas, panel apenas un punto más alto, tipografía hueso. Sin gradientes, sin glows, sin sombras blandas, sin esquinas blandas.",
+    "keyCharacteristics": [
+      "Single-voice accent: verde señal sólo para CTAs primarias, focus, status strip activa.",
+      "Hairline chrome: bordes 1px separan panel de canvas; profundidad por luminosidad, no por sombra.",
+      "Type as formation: Archivo Narrow display italic para Ideas; Inter para UI; Geist Mono tabular para numerales.",
+      "One orchestrated motion: la status strip cuando el LLM está trabajando. El resto se asienta.",
+      "Operate, not Persuade: scanable, densa en datos, contenida en decoración."
+    ],
+    "rules": [
+      { "name": "The Single-Voice Rule", "section": "colors", "body": "Sólo el verde señal está permitido ser saturado. Todo lo demás vive en la luminosidad." },
+      { "name": "The Rarity Rule", "section": "colors", "body": "Signal no llena más del 8% de cualquier pantalla en estado pasivo. En estado activo (Generando), la tira de estado entera puede tomar el color." },
+      { "name": "The Hairline Rule", "section": "colors", "body": "Un borde no puede superar 1px. Si necesitás más separación, subí la luminosidad del fondo, no el grosor del trazo." },
+      { "name": "The Type-Voice Rule", "section": "typography", "body": "El display italic sólo se usa en nombres propios (Idea, Clase). Nunca en UI labels ni en párrafos de ayuda." },
+      { "name": "The Tabular Rule", "section": "typography", "body": "Cualquier número visible al usuario usa font-variant-numeric: tabular-nums." },
+      { "name": "The Measure Rule", "section": "typography", "body": "Prosa limitada a 65–75ch." },
+      { "name": "The Status Strip Rule", "section": "layout", "body": "La navegación primaria vive arriba, no a la izquierda. No reintroducir sidebar." },
+      { "name": "The Containment Rule", "section": "layout", "body": "Cualquier contenedor tiene hairline border y padding ≥ 1.25rem." },
+      { "name": "The Flat-By-Default Rule", "section": "elevation", "body": "Ningún componente lleva box-shadow por defecto." },
+      { "name": "The Lift-By-Color Rule", "section": "elevation", "body": "Para distinguir jerarquía, cambiá la luminosidad del fondo, no agregues blur ni sombra." },
+      { "name": "The Almost-Square Rule", "section": "shapes", "body": "El radio por defecto nunca sube de 4px." },
+      { "name": "The Square Paper Rule", "section": "shapes", "body": "Las superficies que contienen Ideas son cuadrados vivos. Las que ejecutan acciones son apenas suavizadas." }
+    ],
+    "dos": [
+      "Do usa bg-signal sólo para CTAs primarias, focus rings, y la status strip en estado activo.",
+      "Do escribe todos los numerales visibles en Geist Mono o Inter con tabular-nums.",
+      "Do usá el status strip como navegación primaria.",
+      "Do mantene la chalk card cuadrada (rounded-none).",
+      "Do tratá cada Idea como una hoja firmada."
+    ],
+    "donts": [
+      "Don't agregues box-shadow, backdrop-filter, glow, ni gradientes a ningún componente.",
+      "Don't introduzcas una segunda familia de color saturado.",
+      "Don't renderices la respuesta del LLM como chat bubble.",
+      "Don't uses un radius mayor a 4px en ningún componente del MVP.",
+      "Don't uses Icon-only buttons como acciones principales.",
+      "Don't mantengas el icono de Loader2 rotando mientras Generar espera.",
+      "Don't inventes un sidebar o un patrón de navegación lateral."
+    ]
+  }
+}

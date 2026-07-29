@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Dumbbell } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClaseForm } from "@/components/clase-form";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -13,23 +13,42 @@ export function EditClassPageClient({ id }: { id: string }) {
 
   if (!clase) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="mx-auto max-w-3xl px-6 py-4 flex items-center gap-4">
-            <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/classes" />} aria-label="Volver a clases">
+      <div className="min-h-screen bg-canvas">
+        <header className="status-strip" data-state="idle">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              nativeButton={false}
+              render={<Link href="/classes" />}
+              aria-label="Volver a Mis Clases"
+              className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
+            >
               <ArrowLeft className="size-4" />
             </Button>
-            <h1 className="text-lg font-semibold">Editar Clase</h1>
+            <h1 className="font-display italic font-semibold text-lg tracking-tight">
+              Clase no encontrada
+            </h1>
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-6 py-16 text-center">
-          <Dumbbell className="size-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground mb-6">
-            Esta clase no existe o fue eliminada.
-          </p>
-          <Button nativeButton={false} render={<Link href="/classes" />}>
-            Volver a Mis Clases
-          </Button>
+        <main className="mx-auto max-w-3xl px-5 md:px-8 py-20">
+          <div className="chalk-card max-w-md">
+            <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
+              Estado · 404
+            </p>
+            <p className="text-bone mb-1">Esta clase no existe o fue eliminada.</p>
+            <p className="text-sm text-mute leading-relaxed mb-6">
+              Volvé a la lista para elegir otra Clase o crear una nueva.
+            </p>
+            <Button
+              variant="ghost"
+              nativeButton={false}
+              render={<Link href="/classes" />}
+              className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-bone bg-transparent hover:bg-muted rounded-md h-9 px-4"
+            >
+              Volver a Mis Clases
+            </Button>
+          </div>
         </main>
       </div>
     );

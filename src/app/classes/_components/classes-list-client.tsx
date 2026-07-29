@@ -1,93 +1,174 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Dumbbell, Clock, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { Clase } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 export function ClassesListClient() {
   const [classes] = useLocalStorage<Clase[]>("pd:classes", []);
 
+  const empty = classes.length === 0;
+  const days = ["L", "M", "M", "J", "V", "S", "D"];
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Mis Clases</h1>
-          <Button nativeButton={false} render={<Link href="/classes/new" />}>
-            <Plus className="size-4" />
-            Nueva Clase
-          </Button>
+    <div className="min-h-screen bg-canvas">
+      {/* Status strip — navegación primaria */}
+      <header className="status-strip" data-state="idle">
+        <div className="flex items-baseline gap-4">
+          <h1 className="font-display italic font-semibold text-lg leading-none tracking-tight">
+            Mis Clases
+          </h1>
         </div>
+        <Button
+          nativeButton={false}
+          render={<Link href="/classes/new" />}
+          className="rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors"
+        >
+          <Plus className="size-3.5" />
+          Nueva Clase
+        </Button>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-8">
-        {classes.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center py-16 text-center" role="status">
-            <CardContent className="flex flex-col items-center gap-4">
-              <div className="rounded-full bg-muted p-4">
-                <Dumbbell className="size-8 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground max-w-xs">
-                Todavía no creaste ninguna Clase. Empezá creando Crossfit o la que
-                prefieras.
+      <main className="mx-auto max-w-3xl px-5 md:px-8 py-10">
+        {empty ? (
+          <section
+            role="status"
+            className="space-y-8"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute mb-3">
+                Tu pizarra semanal — vacía
               </p>
-              <Button nativeButton={false} render={<Link href="/classes/new" />}>
+              <p className="text-sm text-mute max-w-md leading-relaxed">
+                Todavía no creaste ninguna Clase. Empezá creando{" "}
+                <span className="text-bone font-medium">Crossfit</span>,{" "}
+                <span className="text-bone font-medium">Bodybuild</span>, o la
+                que prefieras. Cada una vive en su propia celda — y se reusa
+                para todas tus Ideas.
+              </p>
+            </div>
+
+            {/* Pizarra semanal — 7 casillas */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute mb-2">
+                Semana tipo
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-4 md:grid-cols-7 gap-px bg-hairline rounded-none overflow-hidden">
+                {days.map((day, i) => (
+                  <div
+                    key={`${day}-${i}`}
+                    className="bg-panel md:aspect-[3/4] min-h-16 md:min-h-0 flex flex-col items-start justify-between p-3"
+                  >
+                    <span className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute">
+                      {day}{i > 0 ? i : ""}
+                    </span>
+                    <span className="text-[0.6875rem] text-mute italic">
+                      sin clase
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Button
+                nativeButton={false}
+                render={<Link href="/classes/new" />}
+                className="rounded-md text-xs font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-9 px-4"
+              >
                 <Plus className="size-4" />
-                Nueva Clase
+                Crear la primera Clase
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         ) : (
-          <div className="grid gap-4">
-            {classes.map((clase) => (
-              <Card key={clase.id}>
-                <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <CardTitle className="truncate">{clase.name}</CardTitle>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {clase.durationMinutes} min
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <FileText className="size-3" />
-                        {clase.exercises.length} ejercicio
-                        {clase.exercises.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/classes/${clase.id}`} />}>
-                      Editar
-                    </Button>
-                    <Button variant="secondary" size="sm" nativeButton={false} render={<Link href={`/classes/${clase.id}/generate`} />}>
-                      Generar
-                    </Button>
-                  </div>
-                </CardHeader>
-                {clase.exercises.length > 0 && (
-                  <CardContent className="pt-0">
-                    <div className="flex flex-wrap gap-1">
-                      {clase.exercises.slice(0, 5).map((ex, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {ex}
-                        </Badge>
-                      ))}
-                      {clase.exercises.length > 5 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{clase.exercises.length - 5} más
-                        </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            ))}
-          </div>
+          <section className="space-y-6" aria-label="Lista de Clases">
+            <header className="flex items-baseline justify-between gap-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute">
+                Catálogo de Clases
+              </p>
+              <p className="font-mono tabular text-xs text-mute tracking-[0.04em]">
+                {classes.length >= 5
+                  ? `Mostrando ${classes.length} Clases`
+                  : classes.length === 1
+                    ? "1 clase"
+                    : `${classes.length} clases`}
+              </p>
+            </header>
+
+            <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
+              {classes.map((clase) => (
+                <li key={clase.id} className="bg-panel">
+                  <article className="chalk-card border-0 hover:border-l-signal transition-colors">
+                    <header
+                      aria-label={`Detalles de ${clase.name}`}
+                      className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline"
+                    >
+                      <h2 className="font-display italic font-semibold text-2xl leading-none tracking-tight text-bone">
+                        {clase.name}
+                      </h2>
+                      <div className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute flex items-center gap-3 shrink-0">
+                        <span>
+                          {clase.durationMinutes}
+                          <span className="ml-1 text-[0.6rem] tracking-[0.10em]">
+                            MIN
+                          </span>
+                        </span>
+                        <span aria-hidden="true" className="text-hairline-strong">
+                          ·
+                        </span>
+                        <span>
+                          {clase.exercises.length}
+                          <span className="ml-1 text-[0.6rem] tracking-[0.10em]">
+                            EJ
+                          </span>
+                        </span>
+                      </div>
+                    </header>
+
+                    {clase.exercises.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {clase.exercises.slice(0, 5).map((ex, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center px-2 py-0.5 font-mono text-[0.6875rem] tracking-[0] text-mute border border-hairline rounded-sm"
+                          >
+                            {ex}
+                          </span>
+                        ))}
+                        {clase.exercises.length > 5 && (
+                          <span className="inline-flex items-center px-2 py-0.5 font-mono text-[0.6875rem] tracking-[0] text-mute border border-hairline rounded-sm">
+                            +{clase.exercises.length - 5} más
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <footer
+                      aria-label={`Acciones de ${clase.name}`}
+                      className="mt-4 pt-3 border-t border-hairline flex items-center justify-end gap-5"
+                    >
+                      <Link
+                        href={`/classes/${clase.id}`}
+                        className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone transition-colors"
+                      >
+                        Editar
+                      </Link>
+                      <Link
+                        href={`/classes/${clase.id}/generate`}
+                        className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-signal hover:text-signal-deep transition-colors inline-flex items-center gap-1.5"
+                      >
+                        Generar
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    </footer>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </main>
     </div>
