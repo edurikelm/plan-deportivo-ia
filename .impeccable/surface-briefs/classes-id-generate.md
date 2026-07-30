@@ -65,3 +65,9 @@ La única transición coreografiada:
 - **Type-Voice Rule**: el display italic sólo en el título de la Idea.
 - **Measure Rule**: el markdown prose dentro de la chalk card respeta `max-w-prose` para que la lectura respire.
 - **Sin icon-only buttons como acciones principales**: Copiar / Exportar / Regenerar / Editar son ghost text-only con iconito a la izquierda.
+
+## Decisión de producto (documentada)
+
+El `form` de foco de la sesión **coexiste** con la `chalk-card` después de la generación. La brief original (línea 34) proponía reemplazar el form, pero la regeneración del status strip depende del foco editable en ese mismo `<textarea>` para alimentar la siguiente llamada al LLM.
+
+Implementación actual: el `<Textarea>` de foco se renderiza siempre, arriba, y la `chalk-card` aparece debajo. El botón Regenerar del status strip (cuando `result` existe) usa el foco actual — el Entrenador lo edita antes de regenerar si quiere.

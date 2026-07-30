@@ -25,6 +25,7 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
   const [focus, setFocus] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Idea | null>(null);
+  const [persisted, setPersisted] = useState(false);
 
   // Visual / UX state
   const [elapsed, setElapsed] = useState(0);
@@ -34,6 +35,9 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
   // Edit mode state
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [editedContent, setEditedContent] = useState<string | null>(null);
+
+  // B9: aria-live announcement (screen reader only, visually hidden)
+  const [announcement, setAnnouncement] = useState("");
 
   const hasPendingEdit =
     mode === "edit" &&
@@ -48,6 +52,21 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       setElapsed(Math.floor((Date.now() - start) / 1000));
     }, 1000);
     return () => clearInterval(id);
+  }, [busy]);
+
+  // B9: one-shot announcements para screen readers, distinguen éxito vs error.
+  // Fires only on busy transitions (false→true and true→false).
+  const prevBusyRef = useRef(false);
+  const lastOutcomeRef = useRef<"ok" | "error">("ok");
+  useEffect(() => {
+    if (busy && !prevBusyRef.current) {
+      setAnnouncement("Generando plan");
+    } else if (!busy && prevBusyRef.current) {
+      setAnnouncement(
+        lastOutcomeRef.current === "ok" ? "Plan generado" : "No se pudo generar el plan",
+      );
+    }
+    prevBusyRef.current = busy;
   }, [busy]);
 
   // Autofoco del editor al entrar en edit mode
@@ -69,7 +88,9 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
     e.preventDefault();
     if (!clase) return;
 
+    setElapsed(0);                                          // B12: cronómetro reset
     setBusy(true);
+    lastOutcomeRef.current = "ok";
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -92,10 +113,10 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
         createdAt: new Date().toISOString(),
       };
 
-      addIdea(idea);
       setResult(idea);
-      toast.success("Plan generado y guardado en el historial");
+      toast.success("Plan generado");
     } catch {
+      lastOutcomeRef.current = "error";                     // B9: el screen reader sabrá que falló
       toast.error("No se pudo generar el plan. Intenta de nuevo.");
     } finally {
       setBusy(false);
@@ -128,7 +149,12 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
   function handleSave() {
     if (!result || !hasPendingEdit || editedContent === null) return;
     const updated: Idea = { ...result, content: editedContent };
-    updateIdea(updated);
+    if (persisted) {
+      updateIdea(updated);
+    } else {
+      addIdea(updated);
+      setPersisted(true);
+    }
     setResult(updated);
     setEditedContent(null);
     setMode("view");
@@ -144,12 +170,16 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       setMode("view");
     }
 
+    setElapsed(0);                                          // B12: cronómetro reset
     setBusy(true);
+    lastOutcomeRef.current = "ok";
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clase, focus: result.focus ?? (focus.trim() || undefined) }),
+        // El textarea manda sobre result.focus cuando el Entrenador lo edita
+        // antes de regenerar (decisión de producto documentada en el brief).
+        body: JSON.stringify({ clase, focus: focus.trim() || result.focus || undefined }),
       });
 
       const data = (await res.json()) as { ok: boolean; content?: string; model?: string; error?: string };
@@ -165,12 +195,12 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
         createdAt: new Date().toISOString(),
       };
 
-      addIdea(updated);
       setResult(updated);
       setEditedContent(null);
       setMode("view");
-      toast.success("Plan regenerado y guardado");
+      toast.success("Plan regenerado");
     } catch {
+      lastOutcomeRef.current = "error";                     // B9: el screen reader sabrá que falló
       toast.error("No se pudo regenerar el plan. Intenta de nuevo.");
     } finally {
       setBusy(false);
@@ -259,7 +289,6 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
       <header
         className="status-strip"
         data-state={busy ? "active" : "idle"}
-        aria-live="polite"
       >
         <div className="flex items-center gap-3 min-w-0">
           <Button
@@ -279,7 +308,6 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
         {busy ? (
           <time
             dateTime={`PT${minutes}M${seconds}S`}
-            aria-label={`Generando. ${minutes} minutos ${seconds} segundos.`}
             className="flex items-center gap-2 font-mono tabular-nums"
           >
             <span
@@ -297,19 +325,31 @@ export function GenerateClient({ ideaId }: GenerateClientProps) {
               {String(seconds).padStart(2, "0")}
             </span>
           </time>
+        ) : result ? (
+          <Button
+            onClick={handleRegenerate}
+            disabled={busy}
+            className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Regenerar
+          </Button>
         ) : (
           <Button
             type="submit"
             form="generate-form"
+            disabled={busy}
             className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {result ? "Regenerar" : "Generar"}
+            Generar
           </Button>
         )}
       </header>
 
       <main className="mx-auto max-w-3xl px-5 md:px-8 py-10 space-y-8">
-        {/* Form */}
+        {/* B9: screen-reader-only live region for generation status */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </div>
         <form id="generate-form" onSubmit={handleSubmit} className="space-y-4">
           <label
             htmlFor="focus"

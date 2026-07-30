@@ -124,7 +124,7 @@ export function ClassesListClient() {
             <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
               {classes.map((clase) => (
                 <li key={clase.id} className="bg-panel">
-                  <article className="chalk-card border-0 hover:border-l-signal transition-colors">
+                  <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
                     <header
                       aria-label={`Detalles de ${clase.name}`}
                       className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline"

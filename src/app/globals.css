@@ -56,6 +56,8 @@
   --color-panel: var(--card);
   --color-panel-foreground: var(--card-foreground);
   --color-hairline: var(--border);
+  --color-hairline-strong: oklch(1 0 0 / 18%);
+  --color-signal-deep: oklch(0.78 0.16 130);
   --color-mute: var(--muted-foreground);
 
   /* Type */
@@ -256,6 +258,9 @@
   @media (prefers-reduced-motion: reduce) {
     .status-strip {
       transition: none;
+    }
+    .chalk-card-reveal {
+      animation: none;
     }
   }
 }
