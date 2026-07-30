@@ -1,7 +1,6 @@
-import type { Clase, Idea } from "./types";
+import type { SavedSession } from "./types";
 
-const CLASSES_KEY = "pd:classes";
-const IDEAS_KEY = "pd:ideas";
+const SESSIONS_KEY = "pd:sessions";
 
 function dispatchStorage(key: string, newValue: string): void {
   window.dispatchEvent(
@@ -13,67 +12,64 @@ function dispatchStorage(key: string, newValue: string): void {
   );
 }
 
-// ─── Classes ──────────────────────────────────────────────────────────────────
+// ─── Migration ───────────────────────────────────────────────────────────────
 
-export function getClasses(): Clase[] {
+/**
+ * Silent migration on first read.
+ * Discards the legacy pd:classes and pd:ideas keys if present,
+ * without throwing or notifying the user.
+ */
+function migrateIfNeeded(): void {
   try {
-    const raw = localStorage.getItem(CLASSES_KEY);
-    return raw ? (JSON.parse(raw) as Clase[]) : [];
+    const hasLegacy =
+      localStorage.getItem("pd:classes") !== null ||
+      localStorage.getItem("pd:ideas") !== null;
+    if (hasLegacy) {
+      localStorage.removeItem("pd:classes");
+      localStorage.removeItem("pd:ideas");
+    }
+  } catch {
+    // Ignore migration errors
+  }
+}
+
+// ─── Sessions ────────────────────────────────────────────────────────────────
+
+export function getSessions(): SavedSession[] {
+  migrateIfNeeded();
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SavedSession[];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-export function setClasses(classes: Clase[]): void {
-  const json = JSON.stringify(classes);
-  localStorage.setItem(CLASSES_KEY, json);
-  dispatchStorage(CLASSES_KEY, json);
+export function setSessions(sessions: SavedSession[]): void {
+  const json = JSON.stringify(sessions);
+  localStorage.setItem(SESSIONS_KEY, json);
+  dispatchStorage(SESSIONS_KEY, json);
 }
 
-export function addClass(clase: Clase): void {
-  setClasses([...getClasses(), clase]);
+export function addSession(session: SavedSession): void {
+  setSessions([...getSessions(), session]);
 }
 
-export function updateClass(updated: Clase): void {
-  setClasses(
-    getClasses().map((c) => (c.id === updated.id ? updated : c)),
+export function updateSession(updated: SavedSession): void {
+  setSessions(
+    getSessions().map((s) => (s.id === updated.id ? updated : s)),
   );
 }
 
-export function removeClass(id: string): void {
-  setClasses(getClasses().filter((c) => c.id !== id));
-  // Cascade: remove all ideas belonging to this class
-  removeIdeasByClass(id);
+export function removeSession(id: string): void {
+  setSessions(getSessions().filter((s) => s.id !== id));
 }
 
-// ─── Ideas ────────────────────────────────────────────────────────────────────
-
-export function getIdeas(): Idea[] {
-  try {
-    const raw = localStorage.getItem(IDEAS_KEY);
-    return raw ? (JSON.parse(raw) as Idea[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function setIdeas(ideas: Idea[]): void {
-  const json = JSON.stringify(ideas);
-  localStorage.setItem(IDEAS_KEY, json);
-  dispatchStorage(IDEAS_KEY, json);
-}
-
-export function addIdea(idea: Idea): void {
-  setIdeas([...getIdeas(), idea]);
-}
-
-export function updateIdea(updated: Idea): void {
-  setIdeas(
-    getIdeas().map((i) => (i.id === updated.id ? updated : i)),
-  );
-}
-
-/** Remove all ideas whose classId matches (cascade after removeClass). */
-export function removeIdeasByClass(classId: string): void {
-  setIdeas(getIdeas().filter((i) => i.classId !== classId));
+/** Returns the most recent sessions, newest first. */
+export function getRecentSessions(limit = 5): SavedSession[] {
+  return [...getSessions()]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
 }

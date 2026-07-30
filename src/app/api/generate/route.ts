@@ -1,58 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateIdea } from "@/lib/minimax";
-import type { Clase } from "@/lib/types";
+import { z } from "zod";
+import { CrossFitSessionInputSchema } from "@/lib/modalities";
+import { generateCrossFitSession } from "@/lib/modalities";
 
 export const runtime = "nodejs";
-// Server-side hard cap on the route: Next.js will respond 504 after 90s.
-// The client enforces a softer 60s timeout; this is the safety net so a
-// stuck upstream call doesn't pin the route forever.
+// Server-side hard cap: Next.js responds 504 after 90s.
 export const maxDuration = 90;
 
-interface GenerateBody {
-  clase: unknown;
-  focus?: string;
-}
+// ─── Request body ────────────────────────────────────────────────────────────
 
-function validateClase(value: unknown): Clase | null {
-  if (typeof value !== "object" || value === null) return null;
-
-  const obj = value as Record<string, unknown>;
-
-  if (typeof obj.id !== "string" || !obj.id.trim()) return null;
-  if (typeof obj.name !== "string" || !obj.name.trim()) return null;
-  if (typeof obj.structure !== "string" || !obj.structure.trim()) return null;
-  if (typeof obj.durationMinutes !== "number" || obj.durationMinutes <= 0)
-    return null;
-  if (typeof obj.createdAt !== "string" || !obj.createdAt.trim()) return null;
-
-  if (!Array.isArray(obj.exercises))
-    return null;
-  if (!obj.exercises.every((e) => typeof e === "string" && e.trim()))
-    return null;
-
-  return obj as unknown as Clase;
-}
+const GenerateBodySchema = z.object({
+  modalityId: z.string().min(1),
+  input: z.unknown(),
+});
 
 export async function POST(req: NextRequest) {
-  let body: GenerateBody;
+  let body: unknown;
 
   try {
-    body = (await req.json()) as GenerateBody;
+    body = await req.json();
   } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = GenerateBodySchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON body" },
+      { ok: false, error: "modalityId is required" },
       { status: 400 },
     );
   }
 
-  const clase = validateClase(body.clase);
-  if (!clase) {
+  const { modalityId, input } = parsed.data;
+
+  if (modalityId !== "crossfit") {
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "clase is required and must have id, name, structure, exercises (array of non-empty strings), durationMinutes (> 0), and createdAt",
-      },
+      { ok: false, error: `Unknown modality: ${modalityId}` },
+      { status: 400 },
+    );
+  }
+
+  const inputResult = CrossFitSessionInputSchema.safeParse(input);
+  if (!inputResult.success) {
+    return NextResponse.json(
+      { ok: false, error: "Invalid input: " + inputResult.error.message },
       { status: 400 },
     );
   }
@@ -65,14 +56,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { content, model } = await generateIdea({
-      clase,
-      focus: body.focus,
+    const result = await generateCrossFitSession(inputResult.data);
+    return NextResponse.json({
+      ok: true,
+      content: result.content,
+      structured: result.structured,
+      model: result.model,
     });
-
-    return NextResponse.json({ ok: true, content, model });
   } catch (err) {
-    console.error("MiniMax upstream error:", err);
+    console.error("[/api/generate] upstream error:", err);
     return NextResponse.json(
       { ok: false, error: "Upstream AI service error" },
       { status: 502 },

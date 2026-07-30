@@ -240,7 +240,11 @@ El componente que define el sistema. Estado pasivo: `bg-canvas`, hairline-bottom
 
 ### Chalk Card (signature component)
 
-El contenedor canónico del resultado. Reemplaza la card + ScrollArea del MVP. Misma hairline en toda su frontera, sin sombras ni radius, fondo `bg-panel`. El título en display condensed italic; los valores numéricos del markdown se renderizan en Geist Mono tabular. Cuando entra en edit mode, una `border-left: 1px solid var(--signal)` aparece en el contenedor completo — la "regla de tiza" como focus indicator.
+El contenedor genérico del resultado para modalidades sin render dedicado. Misma hairline en toda su frontera, sin sombras ni radius, fondo `bg-panel`. El título en display condensed italic; los valores numéricos del markdown se renderizan en Geist Mono tabular. Cuando entra en edit mode, una `border-left: 1px solid var(--signal)` aparece en el contenedor completo — la "regla de tiza" como focus indicator.
+
+### CrossFitPlanView (modalidad CrossFit)
+
+Para la modalidad CrossFit, el resultado se renderiza con `CrossFitPlanView` en lugar del chalk-card fluido genérico. El componente muestra exactamente 4 bloques (Warm-Up, Strength/Skill, WOD, Cool Down), cada uno con label en display italic, duración en Geist Mono tabular, y contenido en Inter con `prose prose-invert`. Hairline entre bloques. El modo edición aplica la regla de tiza (border-left signal) sobre el bloque activo. Agregar futuras modalidades requiere solo un nuevo componente de render (BodybuildPlanView, GymnasticsPlanView, etc.) sin cambios en el layout circundante.
 
 ### Toasts
 
@@ -256,7 +260,7 @@ Concreto, fundamentado en la dirección comprometida o en una regla confirmada d
 - **Do** escribe todos los numerales visibles en Geist Mono o Inter con `tabular-nums`. Un conteo que cambia no debe hacer saltar la composición.
 - **Do** usá el status strip como navegación primaria. La píldora a la derecha es la acción que la pantalla está esperando.
 - **Do** mantene la chalk card cuadrada (`rounded-none`); los botones y chips ya cargan el radio.
-- **Do** tratá cada Idea como una hoja firmada. La chalk card es la hoja; las acciones inline (Copiar, Exportar, Regenerar, Editar) son anotaciones al pie, no una toolbar encima.
+- **Do** tratá cada Sesión como una hoja firmada. El resultado (chalk card o CrossFitPlanView) es la hoja; las acciones inline (Guardar, Copiar, Exportar, Regenerar) son anotaciones al pie, no una toolbar encima.
 
 ### Don't
 
