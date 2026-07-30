@@ -1,14 +1,17 @@
 /**
  * CrossFit modality — server-side entry point.
  *
- * This module uses Node.js built-ins (fs, path) and must only be imported
- * in server contexts (API routes, Server Components).
+ * Generator uses `MiniMax-Text-01` (text-01 — supports native JSON output
+ * via prompt, even though `response_format: json_object` is rejected by the
+ * API). The model returns clean JSON ~13s avg latency (vs ~30s for M2.7-highspeed).
+ * The validated JSON is then converted to markdown for Copiar / Exportar.
+ *
+ * This module must only be imported in server contexts (API routes,
+ * Server Components) — it pulls `openai` and uses Node.js semantics.
  */
-import { readFileSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Modality shape (shared type, no Node.js built-ins) ─────────────────────
 
 /** A modality registered in the system (e.g. CrossFit). */
 export interface Modality {
@@ -19,16 +22,7 @@ export interface Modality {
   iconKey: string;
 }
 
-// ─── Canonical context ────────────────────────────────────────────────────────
-
-export function loadCrossFitContext(): string {
-  return readFileSync(
-    join(process.cwd(), "docs", "instrucciones-crossfit.md"),
-    "utf-8",
-  );
-}
-
-// ─── Zod schemas ─────────────────────────────────────────────────────────────
+// ─── Input schema (Zod) ──────────────────────────────────────────────────────
 
 export const WOD_FORMATS = [
   "AMRAP",
@@ -52,37 +46,45 @@ export const CrossFitSessionInputSchema = z.object({
 });
 export type CrossFitSessionInput = z.infer<typeof CrossFitSessionInputSchema>;
 
+// ─── Output schema (Zod) — with defaults so missing fields fall through ──────
+
 export const CrossFitPlanSchema = z.object({
-  class_title: z.string().min(1).optional().default("Sesión CrossFit"),
-  focus_movement: z.string().min(1).optional().default(""),
-  estimated_duration_min: z.number().int().positive().optional().default(60),
+  class_title: z.string().min(1).default("Sesión CrossFit"),
+  focus_movement: z.string().default(""),
+  estimated_duration_min: z.number().int().positive().default(60),
   sections: z.object({
     warm_up: z.object({
-      duration_min: z.number().int().nonnegative().optional().default(10),
-      description: z.string().min(1).optional().default("Calentamiento general."),
+      duration_min: z.number().int().nonnegative().default(10),
+      description: z.string().min(1).default("Calentamiento general."),
+      exercises: z.array(z.string()).default([]),
     }),
     strength_skill: z.object({
-      duration_min: z.number().int().nonnegative().optional().default(20),
-      description: z.string().min(1).optional().default("Trabajo principal."),
+      duration_min: z.number().int().nonnegative().default(20),
+      description: z.string().min(1).default("Trabajo principal."),
+      exercises: z.array(z.string()).default([]),
     }),
     wod: z.object({
-      format: z.string().min(1).optional().default("AMRAP"),
-      time_cap_min: z.number().int().positive().optional().default(12),
-      description: z.string().min(1).optional().default("Workout of the Day."),
-      score_type: z.string().min(1).optional().default("Rondas + Reps"),
+      format: z.string().min(1).default("AMRAP"),
+      time_cap_min: z.number().int().positive().default(12),
+      description: z.string().min(1).default("Workout of the Day."),
+      score_type: z.string().min(1).default("Rondas + Reps"),
+      exercises: z.array(z.string()).default([]),
     }),
     cool_down: z.object({
-      duration_min: z.number().int().nonnegative().optional().default(8),
-      description: z.string().min(1).optional().default("Vuelta a la calma."),
+      duration_min: z.number().int().nonnegative().default(8),
+      description: z.string().min(1).default("Vuelta a la calma."),
+      exercises: z.array(z.string()).default([]),
     }),
   }),
 });
 export type CrossFitPlan = z.infer<typeof CrossFitPlanSchema>;
 
-// ─── Markdown converter ───────────────────────────────────────────────────────
+// ─── Markdown converter ──────────────────────────────────────────────────────
 
 export function crossfitPlanToMarkdown(plan: CrossFitPlan): string {
   const { sections } = plan;
+  const exerciseList = (xs: readonly string[]): string[] =>
+    xs.length > 0 ? ["", ...xs.map((x) => `- ${x}`)] : [];
   return [
     `# ${plan.class_title}`,
     ``,
@@ -96,6 +98,7 @@ export function crossfitPlanToMarkdown(plan: CrossFitPlan): string {
     `_${sections.warm_up.duration_min} min_`,
     ``,
     sections.warm_up.description,
+    ...exerciseList(sections.warm_up.exercises),
     ``,
     `---`,
     ``,
@@ -104,6 +107,7 @@ export function crossfitPlanToMarkdown(plan: CrossFitPlan): string {
     `_${sections.strength_skill.duration_min} min_`,
     ``,
     sections.strength_skill.description,
+    ...exerciseList(sections.strength_skill.exercises),
     ``,
     `---`,
     ``,
@@ -112,6 +116,7 @@ export function crossfitPlanToMarkdown(plan: CrossFitPlan): string {
     `_${sections.wod.time_cap_min} min · ${sections.wod.score_type}_`,
     ``,
     sections.wod.description,
+    ...exerciseList(sections.wod.exercises),
     ``,
     `---`,
     ``,
@@ -120,12 +125,13 @@ export function crossfitPlanToMarkdown(plan: CrossFitPlan): string {
     `_${sections.cool_down.duration_min} min_`,
     ``,
     sections.cool_down.description,
+    ...exerciseList(sections.cool_down.exercises),
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-// ─── Aleatorio resolver ───────────────────────────────────────────────────────
+// ─── Aleatorio resolver ──────────────────────────────────────────────────────
 
 const RESOLVED_FORMATS: Omit<WodFormat, "Aleatorio">[] = [
   "AMRAP",
@@ -145,43 +151,80 @@ export function resolveAleatorio(strengthSkill: string): WodFormat {
   return RESOLVED_FORMATS[index] as WodFormat;
 }
 
-// ─── Session generator ────────────────────────────────────────────────────────
+// ─── Session generator ───────────────────────────────────────────────────────
+
+const MODEL = "MiniMax-Text-01";
+
+/**
+ * System prompt that asks for JSON output via prompt (no `response_format` —
+ * the API rejects it on Text-01, per eval report 0011). Defaults are baked
+ * into the schema so that even a partial JSON response is recoverable.
+ */
+const JSON_SYSTEM_PROMPT = `Sos un coach deportivo especializado en CrossFit (CF-L3/L4). Tu única tarea es generar la estructura completa de una clase de CrossFit para los parámetros provistos. Respondé únicamente con un objeto JSON válido que cumpla este esquema exacto:
+
+{
+  "class_title": "string (título descriptivo y motivador)",
+  "focus_movement": "string (movimiento técnico principal)",
+  "estimated_duration_min": "integer (duración total en minutos)",
+  "sections": {
+    "warm_up": {
+      "duration_min": "integer",
+      "description": "string (prose introductoria del bloque, sin enumerar ejercicios)",
+      "exercises": ["array de strings, cada uno una línea de la rutina — p. ej. '10 Scapular Pull Ups', '3x5 Air Squats'"]
+    },
+    "strength_skill": {
+      "duration_min": "integer",
+      "description": "string (prose introductoria)",
+      "exercises": ["array de strings — p. ej. '5x5 Back Squat @ 70% 1RM'"]
+    },
+    "wod": {
+      "format": "string (uno de: AMRAP, EMOM, \"For Time\", Tabata, Intervalos)",
+      "time_cap_min": "integer",
+      "description": "string (prose introductoria del WOD)",
+      "score_type": "string (Rondas + Reps | Tiempo | Peso | Calorías)",
+      "exercises": ["array de strings — p. ej. '5 Push Press (135/95 lbs)', '10 Pull Ups (RX)', '15 Box Jumps (24/20 in)'"]
+    },
+    "cool_down": {
+      "duration_min": "integer",
+      "description": "string (prose introductoria)",
+      "exercises": ["array de strings — p. ej. '2 min Foam Rolling', '3x10 Banded Lat Stretch', '5 Downward Dogs'"]
+    }
+  }
+}
+
+Reglas:
+1. Estructura obligatoria: 4 secciones en orden (warm_up, strength_skill, wod, cool_down).
+2. Nomenclatura: terminología CrossFit oficial (Thrusters, Snatch, Double Unders, HSPU, RX, Scaled).
+3. Coherencia: Warm-Up y Cool Down deben activar/recuperar los grupos del movimiento principal.
+4. description = solo una prose introductoria. NO enumeres ejercicios dentro de description. Todos los ejercicios van como elementos del array exercises.
+5. Respondé SOLO con el JSON. Sin texto antes ni después. Sin bloques markdown.`;
+
+export interface GenerateCrossFitSessionResult {
+  content: string;
+  structured: CrossFitPlan;
+  model: string;
+}
 
 export async function generateCrossFitSession(
   input: CrossFitSessionInput,
-): Promise<{ content: string; structured: CrossFitPlan; model: string }> {
-  const context = loadCrossFitContext();
+): Promise<GenerateCrossFitSessionResult> {
   const resolvedFormat =
     input.wodFormat === "Aleatorio"
       ? resolveAleatorio(input.strengthSkill)
       : input.wodFormat;
 
-  const systemPrompt = [
-    context,
-    "",
-    `## Parámetros de esta sesión`,
-    `- Strength/Skill: ${input.strengthSkill}`,
-    `- Formato WOD: ${resolvedFormat}${input.wodFormat === "Aleatorio" ? " (resuelto de Aleatorio)" : ""}`,
-    input.focusMovement ? `- Movimiento foco: ${input.focusMovement}` : "",
-    input.considerations ? `- Consideraciones del entrenador: ${input.considerations}` : "",
-    `- Duración total objetivo: ${input.durationMinutes} min`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
   const userPrompt = [
-    `Generá la estructura de la clase de CrossFit para esta sesión.`,
-    ``,
-    `Parámetros:`,
-    `- Strength/Skill: ${input.strengthSkill}`,
-    `- Formato WOD: ${resolvedFormat}`,
-    input.focusMovement ? `- Foco de movimiento: ${input.focusMovement}` : "",
-    input.considerations ? `- Consideraciones: ${input.considerations}` : "",
+    "Generá la sesión con estos parámetros:",
+    "",
+    `- Duración total objetivo: ${input.durationMinutes} min.`,
+    `- Strength/Skill: ${input.strengthSkill}.`,
+    `- Formato WOD: ${resolvedFormat}${input.wodFormat === "Aleatorio" ? " (resuelto de Aleatorio)" : ""}.`,
+    input.focusMovement ? `- Movimiento foco: ${input.focusMovement}.` : "",
+    input.considerations ? `- Consideraciones del entrenador: ${input.considerations}.` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
-  // Call LLM — no response_format (MiniMax-M3 does not support it)
   const { default: OpenAI } = await import("openai");
   const client = new OpenAI({
     baseURL: "https://api.minimax.io/v1",
@@ -189,15 +232,14 @@ export async function generateCrossFitSession(
   });
 
   const response = await client.chat.completions.create({
-    model: "MiniMax-M3",
+    model: MODEL,
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: JSON_SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
     ],
     temperature: 0.7,
     max_tokens: 4096,
-    // @ts-expect-error MiniMax-specific param not in OpenAI SDK types
-    thinking: { type: "disabled" as const },
+    // No response_format: Text-01 rejects it (see 0011 eval).
   });
 
   const rawContent =
@@ -206,113 +248,26 @@ export async function generateCrossFitSession(
       throw new Error("Empty response from AI provider");
     })();
 
-  // Strip think blocks
-  const strippedContent = rawContent
-    .replace(/<think>[\s\S]*?<\/think>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  // Extract JSON object — LLM may add ```json fences or surrounding prose.
-  // Falls back to the first balanced { ... } block when fences are missing
-  // or malformed (e.g. unclosed fence inside a truncated response).
-  function extractPlanJson(raw: string): string {
-    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenced && fenced[1]) {
-      const candidate = fenced[1].trim();
-      if (candidate.startsWith("{") && candidate.endsWith("}")) {
-        return candidate;
-      }
-    }
-    const firstBrace = raw.indexOf("{");
-    if (firstBrace === -1) return "";
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    for (let i = firstBrace; i < raw.length; i++) {
-      const ch = raw[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (ch === "\\") {
-        escape = true;
-        continue;
-      }
-      if (ch === '"') {
-        inString = !inString;
-        continue;
-      }
-      if (inString) continue;
-      if (ch === "{") depth++;
-      else if (ch === "}") {
-        depth--;
-        if (depth === 0) return raw.slice(firstBrace, i + 1);
-      }
-    }
-    return "";
-  }
-
-  // Parse + validate with Zod — retry once on failure.
-  // `parseError` records the LAST error (either JSON.parse or Zod safeParse).
-  let parsed: CrossFitPlan | undefined;
-  let parseError: Error | null = null;
-  let planJson = extractPlanJson(strippedContent);
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let jsonCandidate: unknown;
-    if (planJson) {
-      try {
-        jsonCandidate = JSON.parse(planJson);
-      } catch (err) {
-        parseError = err instanceof Error ? err : new Error(String(err));
-      }
-    } else {
-      parseError = new Error("No JSON object found in LLM response");
-    }
-
-    if (jsonCandidate !== undefined) {
-      const result = CrossFitPlanSchema.safeParse(jsonCandidate);
-      if (result.success) {
-        parsed = result.data;
-        parseError = null;
-        break;
-      }
-      parseError = result.error;
-    }
-
-    if (attempt === 0) {
-      const retryResponse = await client.chat.completions.create({
-        model: "MiniMax-M3",
-        messages: [
-          {
-            role: "system",
-            content:
-              systemPrompt +
-              "\n\nIMPORTANTE: Respondé EXCLUSIVAMENTE con un único objeto JSON válido (RFC 8259), sin texto antes ni después, sin bloques de markdown ``` ni fences. Todas las comillas dentro de los strings deben ser escapadas con \\\\.",
-          },
-          {
-            role: "user",
-            content:
-              userPrompt +
-              "\n\nReintentá la generación. Devolvé únicamente el objeto JSON completo y bien formado.",
-          },
-        ],
-        temperature: 0.5,
-        max_tokens: 4096,
-        // @ts-expect-error MiniMax-specific param not in OpenAI SDK types
-        thinking: { type: "disabled" as const },
-      });
-      const retryContent = retryResponse.choices[0]?.message?.content ?? "";
-      planJson = extractPlanJson(retryContent);
-    }
-  }
-
-  if (!parsed) {
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(rawContent);
+  } catch (err) {
     throw new Error(
-      `Invalid JSON from AI after 2 attempts: ${parseError?.message ?? "unknown"}`,
+      `Invalid JSON from AI: ${err instanceof Error ? err.message : String(err)}. Raw start: ${rawContent.slice(0, 200)}`,
     );
   }
 
-  const content = crossfitPlanToMarkdown(parsed);
-  return { content, structured: parsed, model: "MiniMax-M3" };
+  const result = CrossFitPlanSchema.safeParse(parsedJson);
+  if (!result.success) {
+    throw new Error(
+      `Zod validation failed: ${result.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; ")}`,
+    );
+  }
+
+  const structured = result.data;
+  const content = crossfitPlanToMarkdown(structured);
+  return { content, structured, model: MODEL };
 }

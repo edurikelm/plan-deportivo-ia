@@ -43,8 +43,8 @@ Sessions persist as `SavedSession`:
   createdAt: string
   model: string
   title: string
-  markdown: string      // readable form, for copy/export
-  structured: object     // validated output from LLM
+  markdown: string      // derived from structured for copy/export
+  structured: CrossFitPlan | null  // validated JSON; source of truth for re-render
   input: object         // what the Entrenador filled in the form
 }
 ```
@@ -68,11 +68,15 @@ Per-session inputs (form fields):
 
 `Aleatorio` is offered as a selectable option to the Entrenador (alongside AMRAP, EMOM, For Time, Tabata, Intervalos). When selected, the system resolves it internally to a concrete format before calling the LLM. The output `sections.wod.format` will always be a concrete value (never "Aleatorio").
 
-### Why not `response_format` on MiniMax-M3
+### Output format: depends on model
 
-MiniMax-M3 does not support `response_format: { type: "json_object" }` in a stable way for this flow. JSON is requested via prompt, validated server-side with Zod, and retried once on failure before surfacing a generic error.
+The format decision is model-dependent and was driven by empirical evaluation (see `docs/agents/eval/eval-models-report.md`).
 
-This is not a workaround — it is the designed path: prompt-based JSON request + server validation + retry.
+**`MiniMax-Text-01` (recommended)**: generations request JSON via prompt (no `response_format`). The model returns clean JSON natively — 6/6 valid, ~13s avg latency. Zod validates the parsed shape; defaults cover any missing fields. Markdown is **derived** from the validated JSON via `crossfitPlanToMarkdown()`. `CrossFitPlanView` renders the structured output directly.
+
+**`MiniMax-M2.7-highspeed` (fallback)**: markdown-only path. ~30s avg latency, no structured output. Used when Text-01 is unavailable.
+
+> **Pre-0011 assumption (now corrected)**: the original ADR claimed `MiniMax-Text-01` supports `response_format: { type: "json_object" }`. The eval proved otherwise — the API returns `400 invalid params, unknown response_format type 'json_object'`. We use prompt-based JSON instead, which works reliably.
 
 ## Consequences
 

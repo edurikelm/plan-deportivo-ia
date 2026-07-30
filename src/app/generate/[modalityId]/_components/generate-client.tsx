@@ -128,7 +128,16 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     };
   }, []);
 
+  // Pure check — safe to call during render (no setState).
+  // Used by `disabled` props to gate the Regenerar button.
   function validate(): boolean {
+    if (!strengthSkill.trim()) return false;
+    if (!wodFormat) return false;
+    return true;
+  }
+
+  // Side-effecting variant — mutates `errors` state. Use only inside event handlers.
+  function validateAndSetErrors(): boolean {
     const newErrors: FormErrors = {};
     if (!strengthSkill.trim()) {
       newErrors.strengthSkill = "Strength/Skill es obligatorio";
@@ -150,9 +159,18 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     };
   }
 
+  /**
+   * Extracts the session title from the first `# Heading` line of the
+   * provider's markdown output. Returns null if no `#` line is found.
+   */
+  function extractTitle(markdown: string): string | null {
+    const match = markdown.match(/^#\s+(.+?)\s*$/m);
+    return match ? match[1].trim() : null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validateAndSetErrors()) return;
 
     setElapsed(0);
     setBusy(true);
@@ -173,7 +191,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       const data = (await res.json()) as {
         ok: boolean;
         content?: string;
-        structured?: CrossFitPlan;
+        structured?: CrossFitPlan | null;
         model?: string;
         error?: string;
       };
@@ -182,16 +200,18 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
         throw new Error(data.error ?? "Error generando la sesión");
       }
 
-      // Build title from structured plan
+      // Title comes from the structured plan (issue 0011 — Text-01 returns
+      // reliable JSON). Fallback to markdown first line, then to date.
       const title =
         data.structured?.class_title ??
+        extractTitle(data.content) ??
         `CrossFit ${new Date().toLocaleDateString("es-AR")}`;
 
       const session: SavedSession = {
         id: crypto.randomUUID(),
         modalityId,
         createdAt: new Date().toISOString(),
-        model: data.model ?? "MiniMax-M3",
+        model: data.model ?? "MiniMax-Text-01",
         markdown: data.content,
         structured: data.structured ?? null,
         input,
@@ -262,7 +282,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   }
 
   async function handleRegenerate() {
-    if (!validate()) return;
+    if (!validateAndSetErrors()) return;
 
     if (hasPendingEdit) {
       if (!window.confirm("Tenés cambios sin guardar. ¿Descartarlos?")) return;
@@ -289,7 +309,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       const data = (await res.json()) as {
         ok: boolean;
         content?: string;
-        structured?: CrossFitPlan;
+        structured?: CrossFitPlan | null;
         model?: string;
         error?: string;
       };
@@ -300,6 +320,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
 
       const title =
         data.structured?.class_title ??
+        extractTitle(data.content) ??
         `CrossFit ${new Date().toLocaleDateString("es-AR")}`;
 
       const updated: SavedSession = {
@@ -307,11 +328,11 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           id: crypto.randomUUID(),
           modalityId,
           createdAt: new Date().toISOString(),
-          model: data.model ?? "MiniMax-M3",
+          model: data.model ?? "MiniMax-Text-01",
           input: buildInput(),
           title: "",
         }),
-        model: data.model ?? "MiniMax-M3",
+        model: data.model ?? "MiniMax-Text-01",
         markdown: data.content,
         structured: data.structured ?? null,
         input: buildInput(),

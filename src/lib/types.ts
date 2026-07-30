@@ -1,5 +1,4 @@
-import type { CrossFitPlan } from "./modalities/crossfit";
-import type { CrossFitSessionInput } from "./modalities/crossfit";
+import type { CrossFitPlan, CrossFitSessionInput } from "./modalities/crossfit";
 
 // ─── Modality (system-defined, not user-created) ────────────────────────────
 
@@ -20,7 +19,8 @@ export interface Modality {
  * not a reusable class template.
  *
  * The `markdown` field is the source of truth for Copiar / Exportar .md.
- * The `structured` field holds the validated output (CrossFitPlan) for this session.
+ * `structured` holds the validated `CrossFitPlan` for re-render via
+ * `CrossFitPlanView` (issue 0011 — `MiniMax-Text-01` returns reliable JSON).
  */
 export interface SavedSession {
   id: string;
@@ -28,9 +28,9 @@ export interface SavedSession {
   modalityId: string;
   createdAt: string;
   model: string;
-  /** Human-readable markdown — the "signed" version after edit-then-save */
+  /** Human-readable markdown — derived from `structured` for Copiar / Exportar */
   markdown: string;
-  /** Structured validated output (e.g. CrossFitPlan). May be re-validated on edit. */
+  /** Validated structured output (CrossFitPlan). Source of truth for re-render. */
   structured: CrossFitPlan | null;
   /** The session input used to generate this session */
   input: CrossFitSessionInput;
@@ -41,7 +41,7 @@ export interface SavedSession {
 /** Initializer for a new SavedSession — fill id + createdAt before persisting. */
 export const EMPTY_SAVED_SESSION: Omit<SavedSession, "id" | "createdAt"> = {
   modalityId: "crossfit",
-  model: "MiniMax-M3",
+  model: "MiniMax-Text-01",
   markdown: "",
   structured: null,
   input: {

@@ -9,7 +9,7 @@ App minimalista para que un **Entrenador** genere sesiones de entrenamiento con 
 - Cada generación produce una **sesión** puntual: input del Entrenador → IA → sesión validada → guardar, copiar o exportar.
 - CrossFit valida exactamente 4 fases: Warm-Up, Strength / Skill, WOD, Cool-Down. Input obligatorio: `strengthSkill` y `wodFormat`; opcional: `focusMovement` y `considerations`.
 - `Aleatorio` se ofrece al Entrenador como opción seleccionable en el formulario (junto a AMRAP, EMOM, For Time, Tabata, Intervalos). Cuando se elige, el sistema lo resuelve internamente a un formato concreto antes de invocar el LLM. La salida `sections.wod.format` será siempre un formato concreto (nunca "Aleatorio").
-- No se usa `response_format` en MiniMax-M3; JSON se pide en prompt y se valida con Zod server-side; reintento una vez antes de fallar.
+- Se pide JSON al LLM (vía prompt) y el cliente valida con Zod. `MiniMax-Text-01` devuelve JSON nativo de forma confiable (issue 0011). El markdown que se guarda en `SavedSession.markdown` se deriva del JSON validado vía `crossfitPlanToMarkdown()`. La render principal es `CrossFitPlanView` (consume `structured`); `ReactMarkdown` es fallback.
 - Agregar futuras modalidades (Bodybuild, Gymnastics, etc.) no requiere tocar el resto del sistema — cada modalidad encapsula su propio contexto canónico, schema de input, schema de output, conversor a markdown y render component.
 
 ## Modelo de Datos
@@ -34,10 +34,10 @@ No existe un objeto literal `ModalityDefinition` como singletón; cada campo est
 - `id: string` — uuid.
 - `modalityId: string` — referencia a la modalidad origen.
 - `createdAt: string` — ISO timestamp.
-- `model: string` — `MiniMax-M3` u otro.
+- `model: string` — `MiniMax-Text-01` u otro.
 - `title: string` — título generado para la sesión.
 - `markdown: string` — contenido en markdown (para copiar/exportar).
-- `structured: object` — objeto validado tal como lo devolvió el LLM (para re-render).
+- `structured: CrossFitPlan | null` — output JSON validado con Zod. Es la fuente de verdad para re-render (`CrossFitPlanView`). El `markdown` se deriva de este para Copiar / Exportar.
 - `input: object` — input que el Entrenador completó (serializable).
 
 > `Guardar` persiste siempre con la Idea presente; `Copiar` y `Exportar .md` siempre disponibles; `Regenerar` reemplaza la Idea activa sin guardarla.
@@ -53,31 +53,59 @@ El system prompt se arma en `generateCrossFitSession()` (`crossfit-schemas.ts`):
 
 ```
 [SYSTEM]
-{contexto canónico de docs/instrucciones-crossfit.md}
+Sos un coach deportivo especializado en CrossFit (CF-L3/L4). Tu única tarea es
+generar la estructura completa de una clase de CrossFit para los parámetros
+provistos.
 
-## Parámetros de esta sesión
-- Strength/Skill: {input.strengthSkill}
-- Formato WOD: {resolvedFormat}
-- Movimiento foco: {input.focusMovement}   (si existe)
-- Consideraciones: {input.considerations}  (si existe)
-- Duración total objetivo: {input.durationMinutes} min
+## Estructura obligatoria
+Toda clase debe tener exactamente 4 secciones en este orden:
+1. Warm-Up (Calentamiento)
+2. Strength / Skill (Técnica o Fuerza)
+3. WOD (Workout of the Day)
+4. Cool Down (Vuelta a la calma)
+
+## Formatos WOD permitidos
+AMRAP, EMOM, For Time, Tabata, Intervalos.
+
+## Nomenclatura
+Usá terminología técnica oficial de CrossFit en inglés/español estándar
+(Thrusters, Snatch, Double Unders, HSPU, RX, Scaled, Time Cap).
+
+## Coherencia anatómica
+El Warm-Up y el Cool Down deben estar diseñados directamente para los grupos
+musculares y patrones del movimiento principal y del WOD.
+
+## Formato de salida
+Respondé ÚNICAMENTE con el markdown de la sesión, con esta jerarquía exacta de
+headers:
+- `# {Título de la clase}` (en la primera línea)
+- `## Warm-Up`
+- `## Strength / Skill`
+- `## WOD — {formato}`
+- `## Cool Down`
+
+Sin prosa antes ni después del markdown. Sin bloques de código ```.
 
 [USER]
-Generá la estructura de la clase de CrossFit para esta sesión.
-
-Parámetros:
-- Strength/Skill: {input.strengthSkill}
-- Formato WOD: {resolvedFormat}
-... (mismos parámetros sin las consideraciones extra)
+Generá la sesión con estos parámetros:
+- Duración total objetivo: {input.durationMinutes} min.
+- Strength/Skill: {input.strengthSkill}.
+- Formato WOD: {resolvedFormat}{si era Aleatorio: " (resuelto de Aleatorio)"}.
+- Movimiento foco: {input.focusMovement}     (si existe)
+- Consideraciones del entrenador: {input.considerations}  (si existe)
 ```
 
+> **Nota (issue 0010)**: el system prompt ya no carga `docs/instrucciones-crossfit.md` literal. El contexto canónico vive inline en `crossfit-schemas.ts` y prioriza el formato de salida (markdown con 4 headers) por encima de reglas metodológicas verbosas. La razón: el enfoque JSON + Zod + retry con el archivo completo resultó inestable en práctica. El documento `docs/instrucciones-crossfit.md` se conserva como referencia canónica pero no se carga al provider.
+
 ### Generación
-- **Modelo**: `MiniMax-M3` (hardcodeado en `src/lib/modalities/crossfit-schemas.ts` línea 192). No existe archivo `lib/minimax.ts`.
-- **Thinking**: explícitamente `disabled`. Prioriza latencia y costo. `stripThinkBlocks()` queda como defensa ante defaults del proveedor.
-- **Sin `response_format`**: MiniMax-M3 no soporta `response_format: { type: "json_object" }` de forma estable. JSON se solicita en prompt y se valida server-side con Zod.
-- **Reintento**: una vez en caso de JSON inválido; luego error genérico.
+- **Modelo**: `MiniMax-Text-01` (hardcodeado en `src/lib/modalities/crossfit-schemas.ts`). Llega a ~13s avg latency con respuesta JSON nativa confiable. No existe archivo `lib/minimax.ts`.
+- **Output**: JSON estructurado (`CrossFitPlan`) validado con Zod. El markdown (4 secciones en `SavedSession.markdown`) se **deriva** del JSON validado vía `crossfitPlanToMarkdown()`. `CrossFitPlanView` renderiza el structured output; `ReactMarkdown` es fallback para sesiones pre-0011 sin `structured`.
+- **JSON via prompt**: `MiniMax-Text-01` rechaza `response_format: { type: "json_object" }` con HTTP 400 (corregido en ADR-0003 — la suposición original era errónea). El JSON se pide en el system prompt; el schema con defaults absorbe respuestas parciales.
+- **Reintento**: ninguno. Si el JSON parse falla o Zod rechaza, error genérico (502). La validación Zod con defaults cubre la mayor parte de los casos.
 - **temperature**: `0.7`.
 - **max_tokens**: `4096`.
+
+> **Histórico**: el modelo `MiniMax-M2.7-highspeed` (usado en 0010) emitía markdown con `thinking` por defecto (~30s avg) y no era capaz de emitir JSON consistente. El eval humano de la batería (0011) demostró que `MiniMax-Text-01` resuelve ambos problemas a costa de un modelo más "pesado". Ver `docs/agents/eval/eval-models-report.md`.
 
 ### Almacenamiento
 - Persistencia 100% local del navegador.
@@ -112,7 +140,7 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 
 - **Next.js 16.2** App Router + React 19.2 + TypeScript 5
 - **Tailwind CSS v4** + **shadcn/ui** (New York / base-nova, neutral)
-- **OpenAI SDK** → `MiniMax-M3` (`https://api.minimax.io/v1`)
+- **OpenAI SDK** → `MiniMax-Text-01` (`https://api.minimax.io/v1`)
 - **react-markdown** + **remark-gfm** para render del markdown
 - **lucide-react** para iconos
 - **Sonner** (shadcn) para toasts
@@ -129,7 +157,7 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 ### API Routes
 - Una sola: `app/api/generate/route.ts` (proxy a MiniMax para ocultar API key).
 - POST recibe `{ modalityId: string, input: object }`.
-- Retorna `{ content: string, structured: object, model: string }` o error.
+- Retorna `{ content: string, structured: CrossFitPlan, model: string }` o error.
 
 ### Rutas de la App
 
@@ -165,13 +193,13 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - **Sesión** — unidad generada por la IA; instancia de una modalidad puntual con input del Entrenador.
 - **SavedSession** — sesión persistida en `pd:sessions`.
 - **input** — parámetros que el Entrenador completó en el formulario de generación.
-- **structured** — output validado del LLM en su forma estructurada (object).
-- **markdown** — versión legible del `structured`, usada para copiar y exportar.
+- **structured** — output del LLM en su forma estructurada (object). En sesiones nuevas es siempre `null` (la salida es markdown); el campo se conserva para compatibilidad hacia atrás con sesiones pre-0010.
+- **markdown** — contenido de la sesión usado para re-render, copiar y exportar. Es la fuente de verdad visual.
 - **Generar** — invocar la IA con el contexto de la modalidad y el input del Entrenador.
 - **Regenerar** — invocar la IA con el mismo input (descarta resultado pendiente).
 - **Copiar** — acción que pone el `markdown` en el portapapeles.
 - **Exportar `.md`** — acción que descarga el `markdown` como archivo.
-- **MiniMax-M3** — modelo por defecto.
+- **MiniMax-Text-01** — modelo por defecto.
 - **OpenAI-compatible** — MiniMax expone el mismo contrato que OpenAI Chat Completions.
 
 ## Plantilla CrossFit — Detalle
