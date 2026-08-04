@@ -88,6 +88,10 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     editedMarkdown !== null &&
     editedMarkdown !== (result?.markdown ?? "");
 
+  // DRY sentinel — same threshold used by beforeunload guard and SIN GUARDAR indicator
+  const hasUnpersistedWork =
+    (result !== null && !persisted) || hasPendingEdit;
+
   // Cronómetro
   useEffect(() => {
     if (!busy) return;
@@ -127,6 +131,17 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       abortRef.current = null;
     };
   }, []);
+
+  // beforeunload guard — warn when there is unpersisted work
+  useEffect(() => {
+    if (!hasUnpersistedWork) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ""; // required by some browsers
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnpersistedWork]);
 
   // Pure check — safe to call during render (no setState).
   // Used by `disabled` props to gate the Regenerar button.
@@ -343,6 +358,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       setResult(updated);
       setEditedMarkdown(null);
       setMode("view");
+      setPersisted(false);
       toast.success("Plan regenerado");
     } catch {
       lastOutcomeRef.current = "error";
@@ -431,6 +447,8 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     );
   }
 
+  const showSinGuardar = hasUnpersistedWork && !busy;
+
   return (
     <div className="min-h-screen bg-canvas">
       {/* Status strip */}
@@ -458,44 +476,54 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           </h1>
         </div>
 
-        {busy ? (
-          <time
-            dateTime={`PT${minutes}M${seconds}S`}
-            className="flex items-center gap-2 font-mono tabular-nums"
-          >
+        <div className="flex items-center gap-3">
+          {showSinGuardar && (
             <span
-              aria-hidden
-              className="font-display italic font-medium text-[0.6875rem] uppercase tracking-[0.16em] text-signal-foreground/70 self-center"
+              aria-live="polite"
+              className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-signal"
             >
-              Generando
+              Sin guardar
             </span>
-            <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
-            <span className="text-2xl leading-none tabular-nums tracking-tight">
-              {String(minutes).padStart(2, "0")}
-            </span>
-            <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
-            <span className="text-2xl leading-none tabular-nums tracking-tight">
-              {String(seconds).padStart(2, "0")}
-            </span>
-          </time>
-        ) : result ? (
-          <Button
-            onClick={handleRegenerate}
-            disabled={busy || !validate()}
-            className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Regenerar
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            form="generate-form"
-            disabled={busy}
-            className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Generar
-          </Button>
-        )}
+          )}
+          {busy ? (
+            <time
+              dateTime={`PT${minutes}M${seconds}S`}
+              className="flex items-center gap-2 font-mono tabular-nums"
+            >
+              <span
+                aria-hidden
+                className="font-display italic font-medium text-[0.6875rem] uppercase tracking-[0.16em] text-signal-foreground/70 self-center"
+              >
+                Generando
+              </span>
+              <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
+              <span className="text-2xl leading-none tabular-nums tracking-tight">
+                {String(minutes).padStart(2, "0")}
+              </span>
+              <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
+              <span className="text-2xl leading-none tabular-nums tracking-tight">
+                {String(seconds).padStart(2, "0")}
+              </span>
+            </time>
+          ) : result ? (
+            <Button
+              onClick={handleRegenerate}
+              disabled={busy || !validate()}
+              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Regenerar
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              form="generate-form"
+              disabled={busy}
+              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Generar
+            </Button>
+          )}
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-5 md:px-8 py-10 space-y-8">
@@ -716,6 +744,15 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     aria-label="Acciones de la sesión"
                     className="mt-6 pt-4 border-t border-hairline flex flex-wrap items-center gap-2"
                   >
+                    <Button
+                      onClick={handleSave}
+                      disabled={busy || (persisted && !hasPendingEdit)}
+                      title={persisted && !hasPendingEdit ? "Sin cambios" : undefined}
+                      className="font-sans text-xs font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Save className="size-3.5" />
+                      Guardar
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={handleCopy}

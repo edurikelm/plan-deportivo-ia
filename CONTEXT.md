@@ -119,12 +119,22 @@ Generá la sesión con estos parámetros:
 
 ### Acciones sobre el Resultado
 
-| Acción | Comportamiento | Persistencia |
-|---|---|---|
-| **Copiar** | Copia el `markdown` al portapapeles vía `navigator.clipboard.writeText`. | No escribe storage. |
-| **Exportar `.md`** | Genera `Blob` del `markdown`, crea `<a download>` con filename `{modalityId}-{YYYY-MM-DD}.md` y dispara click. | No escribe storage. |
-| **Regenerar** | Llama de nuevo al LLM con el mismo input (descarta la edición actual, con confirmación si hay cambios sin guardar). | No persiste. |
-| **Guardar** | Persiste la sesión en `pd:sessions`. | `SavedSession` queda en storage. |
+| Acción | Disponibilidad | Comportamiento | Persistencia |
+|---|---|---|---|
+| **Copiar** | View + edit mode. | Copia el `markdown` (o `editedMarkdown` si está en edit) al portapapeles vía `navigator.clipboard.writeText`. | No escribe storage. |
+| **Exportar `.md`** | View + edit mode. | Genera `Blob` del `markdown`, crea `<a download>` con filename `{modalityId}-{YYYY-MM-DD}.md` y dispara click. | No escribe storage. |
+| **Regenerar** | View + edit mode (con `window.confirm` si hay edición pendiente). | Llama de nuevo al LLM con el mismo input. Resetea `persisted` a `false`. | No persiste. |
+| **Editar** | View mode. | Entra a edit mode con editor split + preview. | No escribe storage. |
+| **Guardar** | View + edit mode, **siempre disponible**. Disabled con tooltip "Sin cambios" cuando `persisted && !hasPendingEdit`. | Persiste la sesión en `pd:sessions`. Si `!persisted` → `addSession`. Si `persisted` → `updateSession`. | `SavedSession` queda en storage. |
+
+### Active Result Lifecycle
+
+- El `active result` (estado local `result` en `GenerateClient`) es **efímero por diseño**: vive sólo en memoria del componente. Al refresh o cambio de ruta, se pierde.
+- No hay rehidratación desde `pd:sessions` al montar. El usuario debe `Guardar` para hacerlo durable.
+- `beforeunload` dispara el confirm nativo del navegador cuando `(result !== null && !persisted) || hasPendingEdit`. Mismo umbral que el `window.confirm` que ya existía en `Regenerar`.
+- Un indicador `SIN GUARDAR` en la status strip (a la derecha del título, `text-signal`, uppercase tracking-plus) refleja el mismo umbral. Sin equivalente "GUARDADO" pasivo.
+- `Guardar` vive como botón signal primario en el footer de la chalk card (antes de las acciones ghost Copiar/Exportar/Regenerar/Editar). La pill de la status strip conserva la semántica de "acción sobre el LLM" (`Generar` / `Regenerar`).
+- Ver `docs/adr/0004-ephemeral-active-result.md` para el rationale completo y alternativas consideradas.
 
 ## Roles
 
@@ -192,6 +202,7 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - **Modalidad** — módulo de generación registrado en código (ej. CrossFit). Cada modalidad encapsula contexto, schemas, conversor y render.
 - **Sesión** — unidad generada por la IA; instancia de una modalidad puntual con input del Entrenador.
 - **SavedSession** — sesión persistida en `pd:sessions`.
+- **active result** — instancia en memoria de `SavedSession` que vive en el estado local del componente `GenerateClient` desde que aterriza el LLM hasta que se cierra la tab. Es **efímero**: no se rehidrata al montar. Mientras `persisted === false` o hay `hasPendingEdit`, el trabajo es local y puede perderse; el indicador `SIN GUARDAR` y el `beforeunload` guard son la red de seguridad.
 - **input** — parámetros que el Entrenador completó en el formulario de generación.
 - **structured** — output del LLM en su forma estructurada (object). En sesiones nuevas es siempre `null` (la salida es markdown); el campo se conserva para compatibilidad hacia atrás con sesiones pre-0010.
 - **markdown** — contenido de la sesión usado para re-render, copiar y exportar. Es la fuente de verdad visual.
@@ -199,6 +210,7 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - **Regenerar** — invocar la IA con el mismo input (descarta resultado pendiente).
 - **Copiar** — acción que pone el `markdown` en el portapapeles.
 - **Exportar `.md`** — acción que descarga el `markdown` como archivo.
+- **Guardar** — acción que persiste el `active result` en `pd:sessions` (`addSession` la primera vez, `updateSession` las siguientes). Disponible en view y edit mode; disabled cuando no hay diff.
 - **MiniMax-Text-01** — modelo por defecto.
 - **OpenAI-compatible** — MiniMax expone el mismo contrato que OpenAI Chat Completions.
 
@@ -229,3 +241,4 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - `AGENTS.md` — protocolo de sesión y routing de delegación.
 - `docs/adr/0001-single-user-local-architecture.md` — decisión local-first.
 - `docs/adr/0003-system-modalities.md` — registry de modalidades y decisión de storage.
+- `docs/adr/0004-ephemeral-active-result.md` — active result efímero + `beforeunload` guard + indicador `SIN GUARDAR`.
