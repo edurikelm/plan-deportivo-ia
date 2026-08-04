@@ -102,7 +102,7 @@ Generá la sesión con estos parámetros:
 - **Modelo**: `MiniMax-Text-01` (hardcodeado en `src/lib/modalities/crossfit-schemas.ts`). Llega a ~13s avg latency con respuesta JSON nativa confiable. No existe archivo `lib/minimax.ts`.
 - **Output**: JSON estructurado (`CrossFitPlan`) validado con Zod. El markdown (4 secciones en `SavedSession.markdown`) se **deriva** del JSON validado vía `crossfitPlanToMarkdown()`. `CrossFitPlanView` renderiza el structured output; `ReactMarkdown` es fallback para sesiones pre-0011 sin `structured`.
 - **JSON via prompt**: `MiniMax-Text-01` rechaza `response_format: { type: "json_object" }` con HTTP 400 (corregido en ADR-0003 — la suposición original era errónea). El JSON se pide en el system prompt; el schema con defaults absorbe respuestas parciales.
-- **Reintento**: ninguno. Si el JSON parse falla o Zod rechaza, error genérico (502). La validación Zod con defaults cubre la mayor parte de los casos.
+- **Reintento**: **uno**, sólo si el strip de fences falla. El parser intenta primero `JSON.parse` crudo; si falla, strip de fences markdown (`` ``` `` con o sin language tag) y reintenta parse. Si ambos fallan, retry de la API una vez con system prompt reforzado. Si el retry también falla, error genérico (502). Ver `docs/adr/0006-robust-json-parsing-strip-and-retry.md`.
 - **temperature**: `0.7`.
 - **max_tokens**: `4096`.
 
@@ -244,3 +244,4 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - `docs/adr/0003-system-modalities.md` — registry de modalidades y decisión de storage.
 - `docs/adr/0004-ephemeral-active-result.md` — active result efímero + `beforeunload` guard + indicador `SIN GUARDAR`.
 - `docs/adr/0005-responsive-content-sidebar.md` — excepción responsive de dos columnas para el mini-historial en `/generate/[modalityId]`.
+- `docs/adr/0006-robust-json-parsing-strip-and-retry.md` — strip de fences markdown + retry una vez en `generateCrossFitSession`.

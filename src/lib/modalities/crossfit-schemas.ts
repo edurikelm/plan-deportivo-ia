@@ -199,6 +199,59 @@ Reglas:
 4. description = solo una prose introductoria. NO enumeres ejercicios dentro de description. Todos los ejercicios van como elementos del array exercises.
 5. Respondé SOLO con el JSON. Sin texto antes ni después. Sin bloques markdown.`;
 
+const RETRY_SYSTEM_PROMPT_SUFFIX = `
+
+IMPORTANTE: Tu respuesta anterior fue rechazada porque contenía fences markdown (\`\`\`json), backticks, o texto antes/después del objeto JSON. Esta vez respondé EXCLUSIVAMENTE con el objeto JSON crudo, sin fences markdown, sin backticks, sin texto adicional antes ni después del JSON. Si tu respuesta anterior fue buena pero tuvo formato incorrecto, esta vez asegurate de emitir JSON puro.`;
+
+// ─── Markdown fence stripper ───────────────────────────────────────────────────
+
+/**
+ * Strips leading and trailing markdown code fences from content.
+ * Only strips if a clear opening fence exists at the start of the trimmed
+ * content AND a clear closing fence exists at the end. If only an opening
+ * fence is present (truncated response), strips only the opening and lets
+ * the rest through — better to fail parsing and trigger the retry than to
+ * silently discard content after a stray backtick.
+ * Returns the content unchanged if no opening fence is detected.
+ */
+function stripMarkdownFences(content: string): string {
+  const s = content.trim();
+
+  const openMatch = s.match(/^```(\w+)?\s*\n?/);
+  if (!openMatch) return s;
+
+  const stripped = s.slice(openMatch[0].length);
+  const closingFence = stripped.match(/\n?```\s*$/);
+  if (!closingFence) return stripped.trim();
+
+  return stripped.slice(0, stripped.length - closingFence[0].length).trim();
+}
+
+// ─── JSON parser with strip-and-retry ────────────────────────────────────────
+
+/**
+ * Attempts JSON.parse on the raw content.
+ * On first failure, strips markdown fences and retries.
+ * Throws with a diagnostic snippet if both attempts fail.
+ */
+function parseJsonResponse(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch (firstErr) {
+    const stripped = stripMarkdownFences(content);
+    if (stripped !== content.trim()) {
+      try {
+        return JSON.parse(stripped);
+      } catch {
+        // Fall through — first error message is more useful for debugging.
+      }
+    }
+    throw new Error(
+      `Invalid JSON from AI: ${firstErr instanceof Error ? firstErr.message : String(firstErr)}. Raw start: ${content.slice(0, 200)}`,
+    );
+  }
+}
+
 export interface GenerateCrossFitSessionResult {
   content: string;
   structured: CrossFitPlan;
@@ -250,11 +303,35 @@ export async function generateCrossFitSession(
 
   let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(rawContent);
-  } catch (err) {
-    throw new Error(
-      `Invalid JSON from AI: ${err instanceof Error ? err.message : String(err)}. Raw start: ${rawContent.slice(0, 200)}`,
+    parsedJson = parseJsonResponse(rawContent);
+  } catch (parseErr) {
+    console.warn(
+      `[generateCrossFitSession] First parse attempt failed: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Retrying with reinforced prompt.`,
     );
+    // Retry una vez con prompt reforzado.
+    const retryResponse = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: JSON_SYSTEM_PROMPT + RETRY_SYSTEM_PROMPT_SUFFIX },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+    });
+
+    const retryContent =
+      retryResponse.choices[0]?.message?.content ??
+      (() => {
+        throw new Error("Empty response from AI provider on retry");
+      })();
+
+    try {
+      parsedJson = parseJsonResponse(retryContent);
+    } catch (retryErr) {
+      throw new Error(
+        `Invalid JSON from AI after retry: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}. Raw start: ${retryContent.slice(0, 200)}`,
+      );
+    }
   }
 
   const result = CrossFitPlanSchema.safeParse(parsedJson);
