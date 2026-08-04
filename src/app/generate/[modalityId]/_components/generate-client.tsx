@@ -395,7 +395,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </h1>
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-5 md:px-8 py-10">
+        <main className="mx-auto max-w-5xl px-5 md:px-8 py-10">
           <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute">
             Cargando…
           </p>
@@ -424,7 +424,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </h1>
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-5 md:px-8 py-20">
+        <main className="mx-auto max-w-5xl px-5 md:px-8 py-20">
           <div className="chalk-card max-w-md">
             <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
               Estado · 404
@@ -526,18 +526,20 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 md:px-8 py-10 space-y-8">
+      <main className="mx-auto max-w-5xl px-5 md:px-8 py-10">
         {/* A11y live region */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
           {announcement}
         </div>
 
-        {/* Session form */}
-        <form
-          id="generate-form"
-          onSubmit={handleSubmit}
-          className="space-y-5"
-        >
+        {/* Grid: form + result card + mini-historial */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_18rem] lg:grid-rows-[auto_auto] gap-8">
+          {/* Form: row 1, col 1 */}
+          <form
+            id="generate-form"
+            onSubmit={handleSubmit}
+            className="space-y-5 lg:col-start-1 lg:row-start-1"
+          >
           {/* Duración */}
           <div className="space-y-2">
             <label
@@ -684,13 +686,12 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               className="min-h-16 px-3.5 py-3 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
-        </form>
+          </form>
 
-        {/* Result card */}
-        {result && (
-          <>
+          {/* Result card: row 2, span ambas columnas. Conditional. */}
+          {result && (
             <article
-              className="chalk-card"
+              className="chalk-card lg:col-span-2 lg:col-start-1 lg:row-start-2"
               data-edit={mode === "edit" ? "true" : undefined}
               aria-labelledby="session-title"
             >
@@ -889,74 +890,81 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                 </>
               )}
             </article>
+          )}
 
-            {/* Mini-history */}
-            {recentSessions.length > 0 && (
-              <section aria-label="Sesiones recientes">
-                <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
-                  Sesiones recientes
-                </p>
-                <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
-                  {recentSessions.map((s) => (
-                    <li key={s.id} className="bg-panel">
-                      <article className="chalk-card border-0 px-4 py-3">
-                        <header className="flex items-baseline justify-between gap-4">
-                          <h3 className="font-display italic font-semibold text-sm leading-none tracking-tight text-bone truncate">
-                            {s.title}
-                          </h3>
-                          <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
-                            {new Date(s.createdAt).toLocaleDateString("es-AR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                            })}
-                            {" · "}
-                            {s.input.durationMinutes} min
-                          </span>
-                        </header>
-                        <footer className="mt-2 flex items-center gap-3">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(s.markdown).then(
-                                () => toast.success("Copiado al portapapeles"),
-                                () => toast.error("No se pudo copiar"),
-                              );
-                            }}
-                            className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
-                            aria-label={`Copiar sesión: ${s.title}`}
-                          >
-                            <Copy className="size-3" />
-                            Copiar
-                          </button>
-                          <button
-                            onClick={() => {
-                              const slug = modality.label.toLowerCase().replace(/\s+/g, "-");
-                              const date = new Date(s.createdAt).toLocaleDateString("en-CA");
-                              const filename = `${slug}-${date}.md`;
-                              const blob = new Blob([s.markdown], {
-                                type: "text/markdown",
-                              });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url;
-                              a.download = filename;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            }}
-                            className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
-                            aria-label={`Exportar sesión: ${s.title}`}
-                          >
-                            <Download className="size-3" />
-                            Exportar
-                          </button>
-                        </footer>
-                      </article>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+          {/* Mini-historial: row 1, col 2 (sticky en lg+) */}
+          <section
+            aria-label="Sesiones recientes"
+            className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto"
+          >
+            <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
+              Sesiones recientes
+            </p>
+            {recentSessions.length === 0 ? (
+              <p className="font-sans text-sm text-mute leading-relaxed">
+                Aún no guardaste ninguna sesión.
+              </p>
+            ) : (
+              <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
+                {recentSessions.map((s) => (
+                  <li key={s.id} className="bg-panel">
+                    <article className="chalk-card border-0 px-4 py-3">
+                      <header className="flex items-baseline justify-between gap-4">
+                        <h3 className="font-display italic font-semibold text-sm leading-none tracking-tight text-bone truncate">
+                          {s.title}
+                        </h3>
+                        <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
+                          {new Date(s.createdAt).toLocaleDateString("es-AR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                          })}
+                          {" · "}
+                          {s.input.durationMinutes} min
+                        </span>
+                      </header>
+                      <footer className="mt-2 flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(s.markdown).then(
+                              () => toast.success("Copiado al portapapeles"),
+                              () => toast.error("No se pudo copiar"),
+                            );
+                          }}
+                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Copiar sesión: ${s.title}`}
+                        >
+                          <Copy className="size-3" />
+                          Copiar
+                        </button>
+                        <button
+                          onClick={() => {
+                            const slug = modality.label.toLowerCase().replace(/\s+/g, "-");
+                            const date = new Date(s.createdAt).toLocaleDateString("en-CA");
+                            const filename = `${slug}-${date}.md`;
+                            const blob = new Blob([s.markdown], {
+                              type: "text/markdown",
+                            });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = filename;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Exportar sesión: ${s.title}`}
+                        >
+                          <Download className="size-3" />
+                          Exportar
+                        </button>
+                      </footer>
+                    </article>
+                  </li>
+                ))}
+              </ul>
             )}
-          </>
-        )}
+          </section>
+        </div>
       </main>
     </div>
   );

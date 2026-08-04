@@ -149,10 +149,13 @@ Una sola paleta en una sola página: matte canvas, panel apenas un escalón arri
 
 Sin sidebar en el MVP. Una columna, mobile-first, con `max-w-3xl` (48rem) en desktop para que el ojo del coach no necesite girar la cabeza. Las cuatro rutas comparten un **status strip** fijo arriba — un header funcional, no decorativo — que lleva a la izquierda el nombre de la Clase activa y a la derecha la píldora de acción primaria (`Generar`, `Nueva Clase`, `Guardar`). La chalk card vive en un `chalk-card` container con padding generoso (`1.25rem`) y hairline-border.
 
+**Excepción documentada en ADR-0005**: la ruta `/generate/[modalityId]` usa un layout responsive de dos columnas a partir de `lg` para alojar el mini-historial siempre visible a la derecha del form. Esta es la primera ruta con sidebar y aplica sólo a **paneles de contenido secundarios** (no a navegación). Las demás rutas mantienen el single-column estricto.
+
 ### Responsive rhythm
 
 - **Mobile (default)**: single-column, status strip edge-to-edge, padding `1rem` lateral.
 - **md+**: `max-w-3xl` centrado, padding `1.5rem` lateral, status strip con mejor aire arriba y abajo.
+- **lg+ (`/generate/[modalityId]` solo, per ADR-0005)**: container pasa a `max-w-5xl` (64rem). Grid `1fr | 18rem`. El form vive a la izquierda; el mini-historial a la derecha con `sticky top-4` y `max-h-[calc(100vh-2rem)] overflow-auto`. El `result card` (`chalk-card` con `CrossFitPlanView`) ocupa todo el ancho del container **debajo** del grid, no comparte columna con el form.
 - **No breakpoints de tipografía**. La escala es fija; los cambios de layout no se disfrazan de cambios de letra.
 
 ### Density
@@ -162,6 +165,7 @@ Sin sidebar en el MVP. Una columna, mobile-first, con `max-w-3xl` (48rem) en des
 ### Named Rules
 
 - **The Status Strip Rule.** La navegación primaria vive arriba, no a la izquierda. Si una superficie nueva pide rutas, siguen siendo strip o sheet — no reintroducir sidebar.
+- **The Content-Sidebar Exception (ADR-0005).** Paneles de contenido secundarios (no navegación) pueden vivir en una columna lateral sticky a partir de `lg` cuando su visibilidad continua aporta valor operativo. La primera aplicación es el mini-historial en `/generate/[modalityId]`. La regla "no sidebar" sigue firme para navegación primaria y para cualquier ruta nueva que no justifique la excepción.
 - **The Containment Rule.** Cualquier contenedor (card, sheet, modal) tiene hairline border y padding ≥ `1.25rem`. Ningún contenedor sin padding interior.
 
 ## Elevation & Depth

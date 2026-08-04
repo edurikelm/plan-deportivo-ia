@@ -44,7 +44,8 @@ No existe un objeto literal `ModalityDefinition` como singletón; cada campo est
 
 ### Mini-historial
 - Array de las últimas 5 `SavedSession` ordenadas por `createdAt` desc.
-- Mostrado debajo del resultado de generación.
+- Sección **siempre visible** en `/generate/[modalityId]`, incluso con cero sesiones guardadas. Cuando el array está vacío, muestra el empty state `"Aún no guardaste ninguna sesión."` (mute, label uppercase tracking-plus). Nunca se oculta por condición de longitud.
+- En desktop (`lg+`), vive en una columna lateral de 18rem con `sticky top-4` y `max-h-[calc(100vh-2rem)] overflow-auto`. En mobile/tablet, stack vertical debajo del `result card`. Ver `docs/adr/0005-responsive-content-sidebar.md` para el rationale del layout.
 
 ## Reglas del Negocio
 
@@ -242,3 +243,4 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - `docs/adr/0001-single-user-local-architecture.md` — decisión local-first.
 - `docs/adr/0003-system-modalities.md` — registry de modalidades y decisión de storage.
 - `docs/adr/0004-ephemeral-active-result.md` — active result efímero + `beforeunload` guard + indicador `SIN GUARDAR`.
+- `docs/adr/0005-responsive-content-sidebar.md` — excepción responsive de dos columnas para el mini-historial en `/generate/[modalityId]`.
