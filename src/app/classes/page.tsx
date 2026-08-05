@@ -63,6 +63,40 @@ export default function ClassesPage() {
             </li>
           ))}
         </ul>
+
+        {/* HERRAMIENTAS */}
+        <div>
+          <div className="border-t border-hairline mt-8" />
+          <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mt-8 mb-3">
+            Herramientas
+          </p>
+          <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
+            <li className="bg-panel">
+              <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
+                <header className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline">
+                  <h2 className="font-display italic font-semibold text-2xl leading-none tracking-tight text-bone">
+                    Calculadora de Pesos
+                  </h2>
+                </header>
+                <p className="mt-4 text-sm text-mute leading-relaxed">
+                  Calculá el peso total de una sesión de levantamiento. Soporta barra + discos
+                  por lado con mezcla de kg y lb.
+                </p>
+                <footer className="mt-4 pt-3 border-t border-hairline flex items-center justify-end">
+                  <Button
+                    variant="ghost"
+                    nativeButton={false}
+                    render={<Link href="/tools/weight-calculator" />}
+                    className="rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-8 px-4 inline-flex items-center gap-1.5"
+                  >
+                    Abrir calculadora
+                    <span aria-hidden="true">→</span>
+                  </Button>
+                </footer>
+              </article>
+            </li>
+          </ul>
+        </div>
       </main>
     </div>
   );

@@ -175,8 +175,9 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 | Ruta | Función | Server / Client |
 |---|---|---|
 | `/` | Redirige a `/classes` | Server |
-| `/classes` | Catálogo de modalidades del sistema (CrossFit primero) | Server shell + Client list |
+| `/classes` | Catálogo unificado: secciones `MODALIDADES DEL SISTEMA` y `HERRAMIENTAS` (CrossFit primero, Calculadora de Pesos como primera herramienta) | Server shell + Client list |
 | `/generate/[modalityId]` | Form de sesión + resultado + mini-historial | Client-only |
+| `/tools/weight-calculator` | Calculadora de pesos (Manual + Foto tabs, sticky bottom total) | Client-only |
 | `/api/generate` | POST → generación validada | Server |
 
 > Eliminadas: `/classes/new`, `/classes/[id]`, `/classes/[id]/generate`, `ClaseForm`.
@@ -214,6 +215,17 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - **Guardar** — acción que persiste el `active result` en `pd:sessions` (`addSession` la primera vez, `updateSession` las siguientes). Disponible en view y edit mode; disabled cuando no hay diff.
 - **MiniMax-Text-01** — modelo por defecto.
 - **OpenAI-compatible** — MiniMax expone el mismo contrato que OpenAI Chat Completions.
+- **Calculadora de Pesos** — surface nueva (`/tools/weight-calculator`) para calcular el peso total de una sesión de levantamiento. No es una modalidad: no genera con IA; es un utility manual. Convive con `/classes` como herramienta operativa.
+- **Barra** — campo separado de los discos en la calculadora. Shape: `{ weightKg: number }`, siempre en kg. UI expone dos chips preset (`15`, `20`) más una opción "Otro" para cualquier otro valor. Por default `weightKg = 20`.
+- **Disco por lado** — primitiva de carga en la calculadora. Una fila representa N placas del mismo peso en un solo lado de la barra. Shape: `{ weight: number, unit: "kg" | "lb", count: integer }`. `unit` es por fila (mezcla kg/lb permitida). `count` default `1`. El peso total por lado es `Σ(weight_kg × count)`.
+- **Peso total** — suma `bar_kg + 2 × Σ(weight_kg × count)`, mostrada siempre en kg y lb en la calculadora. Resultado de la IA en el Foto tab retorna además `totalKg` y `totalLb` explícitos para cross-check; el sistema valida que coincidan con los totales derivados del desglose antes de habilitar el botón **Aplicar al cálculo**.
+- **Estado compartido de la calculadora** — único objeto `{ barKg, discs }` que ambos tabs leen y escriben. El Foto tab **no** escribe directamente: propone un desglose en su propio preview y sólo aplica al estado al confirmar el usuario.
+- **Total sticky** — el peso total se muestra en una franja `sticky bottom-0` siempre visible: `TOTAL · {totalKg} KG · {totalLb} LB` en Geist Mono tabular grande, debajo el breakdown en mute (`20kg + (55lb + 2.5kg)×2`). Border-left `1px solid signal` ("regla de tiza") indica que es el resultado activo.
+- **Persistencia de la calculadora** — el estado `{ barKg, discs }` se auto-guarda en `localStorage` key `pd:calculator-state` con debounce en cada cambio. Al cerrar y volver, la calculadora abre con la última carga. Sin `beforeunload` guard (nada se pierde nunca). Sin mini-historial. Botón ghost `Limpiar` arriba a la derecha resetea a defaults (`{ barKg: 20, discs: [] }`) con `window.confirm`.
+- **Foto tab UX** — un solo botón "Elegir foto" (`<input type="file" accept="image/*">` sin `capture`, mobile chooser nativo muestra cámara/galería/archivos). Cuatro estados: (a) vacío con copy + botón + privacy disclosure inline, (b) foto cargada con thumbnail + botones `Elegir otra` / `Analizar`, (c) analizando con status strip signal-fill + label `Analizando…` (sin spinner en el botón), (d) preview del desglose. Constraints client-side: max 5MB, JPEG/PNG/WebP, min 200×200px.
+- **Endpoint `/api/calculate-weight`** — endpoint dedicado (no extiende `/api/generate`) que recibe `multipart/form-data` con campo `image: File`. Server valida tamaño/formato, codifica a base64, llama a un modelo vision-capable, devuelve `{ ok, breakdown, model }` o error. Las herramientas no son modalidades; no se reutiliza el registry.
+- **Model split por capability** — `MiniMax-Text-01` se mantiene para CrossFit (no se toca lo que funciona, JSON valid 100%, ~13s avg). Para visión se usa `MiniMax-M3` (único modelo documentado con soporte `image_url` / `video_url`). Cada endpoint instancia su propio `OpenAI` client contra `https://api.minimax.io/v1`. No se migra CrossFit a M3 (riesgo de romper JSON output estable).
+- **Status strip de la calculadora** — lado izquierdo: `← Volver` + título display italic `Calculadora de Pesos`. Lado derecho: indicador de estado sin acción. Tres estados: `LISTO` (mute, pasivo), `ANALIZANDO…` (signal-fill, en transición coreografiada del design system), `REVISAR PREVIEW` (mute con dot signal, cuando hay preview del Foto tab sin aplicar). Sin botones en el strip — la acción `Aplicar al cálculo` vive dentro del Foto tab chalk card; el botón `Limpiar` vive arriba a la derecha del form.
 
 ## Plantilla CrossFit — Detalle
 
