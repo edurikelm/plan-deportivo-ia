@@ -24,19 +24,27 @@ function PhaseBlock({
   durationMin,
   description,
   exercises,
+  number,
 }: {
   label: string;
   durationMin: number;
   description: string;
   exercises: readonly string[];
+  number: string;
 }) {
   return (
     <section
-      aria-label={label}
+      aria-label={`${number} — ${label}`}
       className="py-4 border-b border-hairline last:border-0"
     >
-      <header className="flex items-baseline justify-between gap-4 mb-2">
-        <h3 className="font-display italic font-semibold text-base tracking-tight text-bone">
+      <header className="flex items-baseline gap-3 mb-2">
+        <span
+          aria-hidden
+          className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-signal shrink-0 mt-0.5"
+        >
+          {number}
+        </span>
+        <h3 className="font-display italic font-semibold text-base tracking-tight text-bone flex-1 leading-none">
           {label}
         </h3>
         <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
@@ -80,24 +88,28 @@ export function CrossFitPlanView({ plan }: CrossFitPlanViewProps) {
       </header>
 
       <PhaseBlock
+        number="01"
         label="Warm-Up"
         durationMin={plan.sections.warm_up.duration_min}
         description={plan.sections.warm_up.description}
         exercises={plan.sections.warm_up.exercises}
       />
       <PhaseBlock
+        number="02"
         label="Strength / Skill"
         durationMin={plan.sections.strength_skill.duration_min}
         description={plan.sections.strength_skill.description}
         exercises={plan.sections.strength_skill.exercises}
       />
       <PhaseBlock
+        number="03"
         label={`WOD — ${plan.sections.wod.format}`}
         durationMin={plan.sections.wod.time_cap_min}
         description={`**Tipo de score:** ${plan.sections.wod.score_type}\n\n${plan.sections.wod.description}`}
         exercises={plan.sections.wod.exercises}
       />
       <PhaseBlock
+        number="04"
         label="Cool Down"
         durationMin={plan.sections.cool_down.duration_min}
         description={plan.sections.cool_down.description}

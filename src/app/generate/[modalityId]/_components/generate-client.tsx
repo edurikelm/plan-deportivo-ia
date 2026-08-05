@@ -55,6 +55,8 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const [considerations, setConsiderations] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
 
+  const DURATION_OPTIONS = ["45", "60", "75", "90"] as const;
+
   // Generation state
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -538,36 +540,51 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           <form
             id="generate-form"
             onSubmit={handleSubmit}
-            className="space-y-5 lg:col-start-1 lg:row-start-1"
+            className="space-y-4 lg:col-start-1 lg:row-start-1"
           >
+            {/* Brief anchor — names the form as a coach's brief, not a generic form */}
+            <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-hairline">
+              <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
+                Brief de la sesión
+              </p>
+              <p className="font-mono tabular-nums text-[0.6875rem] text-mute">
+                4 fases · {durationMinutes} min
+              </p>
+            </div>
           {/* Duración */}
           <div className="space-y-2">
             <label
               id="duration-label"
-              htmlFor="duration"
               className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
             >
               Duración
             </label>
-            <Select
-              value={durationMinutes}
-              onValueChange={(v) => { if (v != null) setDurationMinutes(v); }}
-              disabled={busy}
+            <div
+              role="radiogroup"
               aria-labelledby="duration-label"
+              className="flex flex-wrap items-center gap-2"
             >
-              <SelectTrigger
-                id="duration"
-                className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
-              >
-                <SelectValue placeholder="60 min" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-hairline text-bone">
-                <SelectItem value="45">45 min</SelectItem>
-                <SelectItem value="60">60 min</SelectItem>
-                <SelectItem value="75">75 min</SelectItem>
-                <SelectItem value="90">90 min</SelectItem>
-              </SelectContent>
-            </Select>
+              {DURATION_OPTIONS.map((m) => {
+                const selected = durationMinutes === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setDurationMinutes(m)}
+                    disabled={busy}
+                    className={`font-mono tabular-nums text-sm px-3.5 py-1.5 rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      selected
+                        ? "bg-signal text-signal-foreground border-signal"
+                        : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
+                    }`}
+                  >
+                    {m} min
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Strength / Skill */}
@@ -901,9 +918,14 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               Sesiones recientes
             </p>
             {recentSessions.length === 0 ? (
-              <p className="font-sans text-sm text-mute leading-relaxed">
-                Aún no guardaste ninguna sesión.
-              </p>
+              <div className="border border-hairline rounded-sm bg-canvas/40 p-4">
+                <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-2">
+                  Vacío
+                </p>
+                <p className="font-sans text-sm text-mute leading-relaxed">
+                  Generá una sesión y guardala. Las últimas 5 que persistas aparecen acá.
+                </p>
+              </div>
             ) : (
               <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
                 {recentSessions.map((s) => (
