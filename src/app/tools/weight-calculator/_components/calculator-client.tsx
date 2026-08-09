@@ -67,8 +67,10 @@ const LB_PER_KG = 1 / KG_PER_LB;
 // as `clamp(MIN, weight_kg * SCALE, MAX)` so the visualization carries real
 // information (heavier discs are visibly wider). The scale is intentionally
 // conservative so a typical 5-disc-per-side load still fits inside a 360px
-// container with the bar in the middle.
-const DISC_WIDTH_MIN_PX = 8;
+// container with the bar in the middle. MIN is high enough that a real
+// 2.5 kg plate reads as a thin chalk stripe rather than disappearing into
+// the row gap.
+const DISC_WIDTH_MIN_PX = 12;
 const DISC_WIDTH_MAX_PX = 56;
 const DISC_WIDTH_SCALE = 3.2; // px per kg
 
@@ -114,6 +116,21 @@ function discWidthPx(weight: number, unit: "kg" | "lb"): number {
     DISC_WIDTH_MAX_PX,
     Math.max(DISC_WIDTH_MIN_PX, wKg * DISC_WIDTH_SCALE),
   );
+}
+
+/**
+ * Encodes the disc's mass as a luminosity step so heavier plates sit
+ * flush against the bone ceiling and lighter bumpers recede — the eye
+ * reads "iron vs bumper" without leaving the monochrome chalkboard
+ * palette. Threshold lines up with the common bumper-plate ranges:
+ * < 10 kg is almost always a training bumper, > 20 kg is competition
+ * iron or calibrated change.
+ */
+function discToneClass(weight: number, unit: "kg" | "lb"): string {
+  const wKg = unit === "kg" ? weight : lbToKg(weight);
+  if (wKg >= 20) return "disc-tone-iron";
+  if (wKg >= 10) return "disc-tone-standard";
+  return "disc-tone-bumper";
 }
 
 function newDiscId(): string {
@@ -658,7 +675,7 @@ export function CalculatorClient() {
                   {discs.map((disc) => (
                     <li
                       key={disc.id}
-                      className="flex items-center gap-2 px-2 py-1.5 border border-hairline rounded-sm bg-panel/40"
+                      className="disc-row-enter flex items-center gap-2 px-2 py-1.5 border border-hairline rounded-sm bg-panel/40"
                     >
                       {/* Visual width — encodes the weight in pixels so
                           the coach can read "how heavy is this?" at a glance. */}
@@ -791,29 +808,32 @@ export function CalculatorClient() {
 
       {/* ── Sticky TOTAL footer ─────────────────────────────────────── */}
       <footer className="sticky bottom-0 bg-canvas border-t border-hairline">
-        <div className="mx-auto max-w-2xl px-5 md:px-8 py-4 flex items-center gap-4">
+
+        <div className="mx-auto max-w-2xl px-5 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <div className="min-w-0 flex-1">
             <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
               Total · {discs.length === 0 ? "solo barra" : `${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} de disco`}
             </p>
             <p className="font-mono tabular-nums text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
-              {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
-                ? "—"
-                : displayUnit === "kg"
-                  ? `${totals.kg.toFixed(1)} kg`
-                  : `${totals.lb.toFixed(1)} lb`}
+              <span className="whitespace-nowrap">
+                {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
+                  ? "—"
+                  : displayUnit === "kg"
+                    ? `${totals.kg.toFixed(1)} kg`
+                    : `${totals.lb.toFixed(1)} lb`}
+              </span>
               {displayUnit === "kg" && discs.length > 0 && (
-                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline">
+                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
                   · {totals.lb.toFixed(1)} lb
                 </span>
               )}
               {displayUnit === "lb" && discs.length > 0 && (
-                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline">
+                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
                   · {totals.kg.toFixed(1)} kg
                 </span>
               )}
             </p>
-            <p className="font-mono tabular-nums text-[0.8125rem] text-mute leading-none mt-2 truncate">
+            <p className="font-mono tabular-nums text-[0.8125rem] text-mute leading-snug mt-2">
               {discs.length === 0 ? `${barKg}kg` : breakdownLine}
             </p>
           </div>
@@ -832,12 +852,13 @@ export function CalculatorClient() {
             }}
             disabled={discs.length === 0}
             aria-label="Copiar carga"
-            className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 shrink-0 disabled:opacity-30"
+            className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 shrink-0 disabled:opacity-30 self-start sm:self-auto"
           >
             <Copy className="size-3.5" aria-hidden />
             Copiar
           </Button>
         </div>
+
       </footer>
     </div>
   );
@@ -870,20 +891,27 @@ function BarVisualization({ barKg, discs, unit }: BarVisualizationProps) {
   return (
     <div className="bg-panel border border-hairline rounded-none px-5 py-8 overflow-x-auto">
       <div className="flex items-center justify-center gap-0 min-h-[88px] min-w-fit w-full">
-        {/* LEFT SIDE — discs stacked outer-to-inner, visually mirrored. */}
+        {/* LEFT SIDE — discs stacked outer-to-inner, visually mirrored.
+            The prop arrives ascending (lightest → heaviest); we iterate
+            directly so the lightest disc sits at the outer end (leftmost
+            in this flex row) and the heaviest rests against the sleeve,
+            matching real gym loading convention. */}
         <div className="flex items-center shrink min-w-0" aria-hidden>
           {discs.length === 0 ? (
             <span className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute/60 mr-3">
               Sin discos
             </span>
           ) : (
-            [...discs].reverse().map((d) => (
+            discs.map((d) => (
               <DiscBlock
                 key={`l-${d.id}`}
+                side="left"
+                toneClass={discToneClass(d.weight, d.unit)}
                 widthPx={discWidthPx(d.weight, d.unit)}
                 label={
                   <DiscLabel
                     weight={d.weight}
+                    weightUnit={d.unit}
                     count={d.count}
                     displayUnit={unit}
                     widthPx={discWidthPx(d.weight, d.unit)}
@@ -912,20 +940,30 @@ function BarVisualization({ barKg, discs, unit }: BarVisualizationProps) {
               />
             ))}
           </div>
-          {/* End caps (sleeves) — slightly thicker than the shaft */}
-          <span className="absolute inset-y-[-2px] left-0 w-[3px] bg-bone/90" />
-          <span className="absolute inset-y-[-2px] right-0 w-[3px] bg-bone/90" />
+          {/* End caps (sleeves) — the metal collars where the discs rest.
+              Wider than the shaft, slightly extended above/below, with a
+              hairline on the inside edge so the seam between collar and
+              shaft reads as a deliberate metal-on-metal joint. */}
+          <span className="bar-sleeve absolute inset-y-[-4px] left-0 w-[6px] border-r border-canvas/50" />
+          <span className="bar-sleeve absolute inset-y-[-4px] right-0 w-[6px] border-l border-canvas/50" />
         </div>
 
-        {/* RIGHT SIDE — discs stacked inner-to-outer (mirror of left). */}
+        {/* RIGHT SIDE — discs stacked inner-to-outer (mirror of left).
+            On this side the bar is to the left, so the *innermost* disc
+            is the leftmost in the flex row. We reverse the ascending prop
+            so the heaviest disc renders leftmost (closest to the sleeve)
+            and the lightest sits at the rightmost (outer) end. */}
         <div className="flex items-center shrink min-w-0" aria-hidden>
-          {discs.map((d) => (
+          {[...discs].reverse().map((d) => (
             <DiscBlock
               key={`r-${d.id}`}
+              side="right"
+              toneClass={discToneClass(d.weight, d.unit)}
               widthPx={discWidthPx(d.weight, d.unit)}
               label={
                 <DiscLabel
                   weight={d.weight}
+                  weightUnit={d.unit}
                   count={d.count}
                   displayUnit={unit}
                   widthPx={discWidthPx(d.weight, d.unit)}
@@ -948,8 +986,12 @@ function BarVisualization({ barKg, discs, unit }: BarVisualizationProps) {
         <span className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
           {totalDiscWidth === 0
             ? "0 kg en discos"
-            : `Discos ${formatWeightForDisplay(
-                discs.reduce(
+            : (() => {
+                // Sum the per-side disc mass, round to 1 decimal so the legend
+                // reads with the same precision as the TOTAL footer (kg sum
+                // is otherwise printed with full float precision because
+                // formatWeightForDisplay only rounds when converting to lb).
+                const sumKg = discs.reduce(
                   (acc, d) =>
                     acc +
                     2 *
@@ -957,28 +999,55 @@ function BarVisualization({ barKg, discs, unit }: BarVisualizationProps) {
                         ? d.weight * d.count
                         : lbToKg(d.weight) * d.count),
                   0,
-                ),
-                unit,
-              )} ${unit}`}
+                );
+                const display = formatWeightForDisplay(
+                  Math.round(sumKg * 10) / 10,
+                  unit,
+                );
+                return `Discos ${display} ${unit}`;
+              })()}
         </span>
       </div>
     </div>
   );
 }
 
-function DiscBlock({ widthPx, label }: { widthPx: number; label: React.ReactNode }) {
+function DiscBlock({
+  widthPx,
+  label,
+  side,
+  toneClass,
+}: {
+  widthPx: number;
+  label: React.ReactNode;
+  side: "left" | "right";
+  toneClass: string;
+}) {
   // Chalk-disc visual: a textured block whose fill is `bone` (the actual
   // chalk line), with a hairline border on top/bottom that reads as the
   // edge of the plate. The number sits inside in mono tabular.
+  //
+  // Motion: the width IS the encoded weight — when the weight changes,
+  // .disc-block transitions `width` over 200ms so the plate visibly
+  // "fills" the bar. On mount, .disc-block-enter-{side} slides the plate
+  // in from the sleeve (gym convention: heavy plates inside, light bumpers
+  // stack outward). See globals.css for the keyframes.
+  //
+  // Surface: toneClass encodes density (iron/standard/bumper); the inner
+  // .disc-chalk-texture overlay adds a chalk-dust grain via SVG noise
+  // multiply-blended at low opacity.
   return (
     <div
-      className="relative bg-bone/85 border-y border-canvas/40 first:border-l last:border-r shrink-0"
+      className={`disc-block relative ${toneClass} border-y border-canvas/40 first:border-l last:border-r shrink-0 ${
+        side === "left" ? "disc-block-enter-left" : "disc-block-enter-right"
+      }`}
       style={{
         width: `${widthPx}px`,
         height: "44px",
         marginLeft: "-1px",
       }}
     >
+      <div className="disc-chalk-texture absolute inset-0" aria-hidden />
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
         {label}
       </div>
@@ -988,11 +1057,13 @@ function DiscBlock({ widthPx, label }: { widthPx: number; label: React.ReactNode
 
 function DiscLabel({
   weight,
+  weightUnit,
   count,
   displayUnit,
   widthPx,
 }: {
   weight: number;
+  weightUnit: "kg" | "lb";
   count: number;
   displayUnit: DisplayUnit;
   widthPx: number;
@@ -1000,8 +1071,19 @@ function DiscLabel({
   // Inside each disc we render the per-side weight. The disc-block already
   // encodes its weight visually via width, so the label is just confirmation.
   // Below ~32px we drop the label — there's no room to read it.
+  //
+  // The label shows the weight in the current display unit. The disc's
+  // internal weight stays in its entered unit (kg or lb), so we have to
+  // convert here — not assume `formatWeightForDisplay(weight, displayUnit)`
+  // works on a weight that's already in the target unit. formatWeightForDisplay
+  // assumes kg input; here we know the source unit and do the right thing.
   if (widthPx < 32) return null;
-  const displayValue = formatWeightForDisplay(weight, displayUnit);
+  const displayValue =
+    weightUnit === displayUnit
+      ? weight
+      : weightUnit === "kg"
+        ? Math.round(weight * KG_PER_LB * 10) / 10
+        : Math.round((weight / KG_PER_LB) * 10) / 10;
   return (
     <span className="font-mono tabular-nums text-[0.6875rem] leading-none text-canvas font-semibold tracking-tight whitespace-nowrap">
       {displayValue}

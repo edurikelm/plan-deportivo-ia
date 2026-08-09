@@ -230,6 +230,97 @@
     animation: chalk-card-reveal 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
+  /* ── Bar-visualization motion ────────────────────────────────────────
+     Two motions, both intentional:
+     1. `.disc-block` tweens its width on weight change — this IS the
+        "filling" experience the coach sees when a plate gets heavier.
+     2. `.disc-block-enter-{left,right}` slides a freshly-mounted disc in
+        from the sleeve side (gym convention: the new plate stacks from
+        inside out). Direction is chosen by which side of the bar the disc
+        sits on.
+     Both are short (≤ 220ms), no bounce, interruptible — re-keying or
+     rapid weight edits simply retarget the tween. */
+  .disc-block {
+    transition: width 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: width;
+  }
+  @keyframes disc-block-enter-from-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes disc-block-enter-from-left {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .disc-block-enter-left {
+    animation: disc-block-enter-from-right 220ms
+      cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .disc-block-enter-right {
+    animation: disc-block-enter-from-left 220ms
+      cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* Disc input row entry in the Manual tab — fade + small downward
+     settle so a freshly added row reads as "the form just grew". */
+  @keyframes disc-row-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .disc-row-enter {
+    animation: disc-row-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* ── Chalk-disc texture ──────────────────────────────────────────────
+     The disc blocks need to read as "chalk on a chalkboard", not as a
+     flat colored rectangle. A subtle SVG feTurbulence noise is multiply-
+     blended at low opacity so the underlying bone fill keeps its
+     hierarchy but gains the visual grain of a real chalk mark. The tile
+     is small (50px) so the noise stays textured rather than uniform.
+
+     No gradients, no shadows, no glow — this is the chalkboard identity
+     speaking through surface quality, not through color. */
+  .disc-chalk-texture {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.7 0'/></filter><rect width='100' height='100' filter='url(%23n)'/></svg>");
+    background-size: 50px 50px;
+    background-repeat: repeat;
+    mix-blend-mode: multiply;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+
+  /* Tonal step for disc material — encodes density by luminosity only,
+     no second saturated color. Iron (heavy) sits flush against the bone
+     ceiling; bumper (light) recedes toward the panel. */
+  .disc-tone-iron { background-color: oklch(0.96 0.005 80 / 0.95); }
+  .disc-tone-standard { background-color: oklch(0.96 0.005 80 / 0.85); }
+  .disc-tone-bumper { background-color: oklch(0.96 0.005 80 / 0.7); }
+
+  /* Sleeve collar — the visible end-cap of the Olympic bar where the
+     discs rest. Hairline of canvas on the inside edge reads as the
+     seam where the sleeve meets the shaft. */
+  .bar-sleeve {
+    background-color: oklch(0.96 0.005 80 / 0.95);
+  }
+
   /* Status strip — pasiva / activa is the one orchestrated motion */
   .status-strip {
     position: relative;
@@ -260,6 +351,14 @@
       transition: none;
     }
     .chalk-card-reveal {
+      animation: none;
+    }
+    .disc-block {
+      transition: none;
+    }
+    .disc-block-enter-left,
+    .disc-block-enter-right,
+    .disc-row-enter {
       animation: none;
     }
   }
