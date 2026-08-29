@@ -80,25 +80,23 @@ Screenshots, traces, snapshots y archivos generados durante verificación **no s
 
 Esta sección existe para que una sesión nueva sepa qué hay en curso sin tener que descubrirlo desde cero. Cuando retomes trabajo, mirá primero `docs/agents/issues/`, leé el umbrella open que esté activo, y seguí el ticket hijo que esté en `ready-for-agent` o `in_progress`.
 
-### En curso al cierre de la última sesión
+### Cerrado en esta sesión (umbrella 0012 — Saved Weight Records)
 
-- **Umbrella activo**: `0012-saved-weight-records` (issue en `docs/agents/issues/0012-saved-weight-records.md`).
-  - ADR de soporte: `docs/adr/0009-saved-weight-records.md`.
-  - Hijos: 5 vertical slices (0013-0017) en `docs/agents/issues/`. El plan original de 7 horizontal layers está archivado en `docs/agents/issues/.archive/`.
-- **Implementado** (código + verifier pass): 0013 (save labeled), 0014 (auto-log), 0015 (mini-panel).
-- **Pendiente**: 0016 (página completa de historial en `/tools/weight-calculator/history`), 0017 (polish + verify end-to-end).
+- **0012 + 0013-0017 todos `status: closed` con `closed_at: 2026-08-29`.** 7 commits: `5a11c43` (0013-0015) → `c1cedd9` (close housekeeping) → `fbb9887` (0016) → `ae48fe6` (0017 polish) → `39a7afe` (0017 pivot, ver abajo) → `cd88ad7` (umbrella close). `master` @ `cd88ad7` en sync con `origin/master`.
+- **Pivot documentado**: el **auto-log pasivo** (debounce 1500ms, watcher de "estados estables") fue removido durante el polish de 0017. En uso real creaba más ruido que valor. Ahora sólo se persisten `source: "manual"` (del form Guardar) y `source: "foto"` (del Foto accept). El variant `"auto-log"` se mantiene en el `RecordSource` enum por backward compat con `localStorage` viejo; Zod los descarta silenciosamente en read. Si querés formalizar el pivot, escribí un ADR nuevo (0009 queda como historical record).
+- **Out of scope del umbrella, candidatos a futuro**: test infra (seam natural: `src/lib/calculator/history.ts`), bulk delete / multi-select, edit inline (`updateRecord` ya está exportado), export CSV/JSON, sync entre devices, registry de movimientos tipado.
 
 ### Patrones establecidos en el código (consultar antes de introducir variantes)
 
 - **Storage namespace**: keys `pd:*` — `pd:sessions`, `pd:calculator-state`, `pd:calculator-records`. Helpers en `src/lib/storage.ts` con el patrón `dispatchStorage` para que los `storage` events sintéticos refresquen same-tab consumers.
 - **Storage reactivo en componentes**: `useSyncExternalStore` con la string cruda como snapshot. **No** `useState` + `useEffect` con `setRecords(...)` adentro — falla la regla de React 19 `react-hooks/set-state-in-effect`. El snapshot es la string JSON, el consumer lo parsea con `parseRecordsFromRaw` / `getRecentRecordsFromRaw` (los helpers que aceptan raw existen precisamente para que el `useMemo` con dep `[raw]` sea genuino).
+- **Quota errors**: `isQuotaError(err)` en `src/lib/storage.ts` distingue `QuotaExceededError` / `NS_ERROR_DOM_QUOTA_REACHED` de otros IO errors. Todos los call sites de `addRecord` / `removeRecord` / `setCalculatorState` están wrapeados en try/catch con toasts accionables ("Almacenamiento lleno. Borrá registros antiguos desde el historial.").
 - **Helpers puros de dominio**: `src/lib/calculator/history.ts` con `computeTotals`, `hashState`, `normalizeExerciseName`, `dedupeExercises`. Importar desde `@/lib/calculator` (el barrel) — no reimplementar localmente.
 - **IDs**: `crypto.randomUUID()` (no `Date.now() + Math.random()`).
+- **Focus management en formularios inline**: al cerrar, focus vuelve al trigger button (ver patrón en `closeSaveForm` de `calculator-client.tsx`).
 
-### Cómo retomar 0016
+### Cómo retomar trabajo nuevo
 
-1. Leé `0012-saved-weight-records.md` (umbrella spec).
-2. Leé `0016-history-page.md` (ticket a implementar).
-3. Leé `0009-saved-weight-records.md` (decisión arquitectónica).
-4. Leé `src/app/tools/weight-calculator/_components/calculator-client.tsx` y `saved-records-panel.tsx` para ver los patrones que se deben mantener.
-5. Implementá siguiendo la forma vertical-slice (no layer-by-layer). Aceptación: 14 criterios en el issue, todos verificables.
+1. Buscá un umbrella open en `docs/agents/issues/` (filtrá por `status: open`).
+2. Si no hay ninguno, considerá candidatos del PRODUCT.md roadmap o de los "out of scope" arriba.
+3. Si retomás un ticket, usá el patrón vertical-slice (no horizontal-layer) — la metodología probada de 0013-0017.
