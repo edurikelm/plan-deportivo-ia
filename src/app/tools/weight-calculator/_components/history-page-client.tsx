@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  isQuotaError,
   parseRecordsFromRaw,
   removeRecord,
   setCalculatorState,
@@ -129,6 +130,19 @@ export function HistoryPageClient() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
 
+  // Refs for focus management. `searchInputRef` lets us return focus to the
+  // search box after the X-clear button unmounts; `rowRefs` lets us move
+  // focus to the next/previous row's Cargar button after a delete (per 0017
+  // AC 3). The row ref is a `Map<id, button>` because the filtered list is
+  // recreated every render and the row indices shift as records are added
+  // or removed.
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const setRowRef = useCallback((id: string, el: HTMLButtonElement | null) => {
+    if (el) rowRefs.current.set(id, el);
+    else rowRefs.current.delete(id);
+  }, []);
+
   const records = useMemo(
     () => (hydrated ? parseRecordsFromRaw(raw) : []),
     [raw, hydrated],
@@ -214,8 +228,44 @@ export function HistoryPageClient() {
     ) {
       return;
     }
-    removeRecord(record.id);
-    toast.success("Registro eliminado");
+    // Compute the focus target BEFORE the state update so we can find the
+    // surviving neighbors. WAI-ARIA: focus the next item; if none, the
+    // previous; if neither, the search input (the next sensible control).
+    const idx = filtered.findIndex((r) => r.id === record.id);
+    const remaining = filtered.filter((r) => r.id !== record.id);
+    const nextFocus =
+      remaining[idx] ?? remaining[idx - 1] ?? null;
+
+    try {
+      removeRecord(record.id);
+      toast.success("Registro eliminado");
+      // The ref Map still points at the deleted button (state hasn't
+      // updated yet), so we focus AFTER React commits the new list.
+      requestAnimationFrame(() => {
+        if (nextFocus) {
+          rowRefs.current.get(nextFocus.id)?.focus();
+        } else {
+          searchInputRef.current?.focus();
+        }
+      });
+    } catch (err) {
+      console.error("[history] failed to remove record:", err);
+      if (isQuotaError(err)) {
+        toast.error(
+          "Almacenamiento lleno. No se pudo eliminar el registro.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.error("No pudimos eliminar el registro. Probá de nuevo.");
+      }
+    }
+  }
+
+  function clearSearch() {
+    setSearch("");
+    // The X button unmounts on the same render; return focus to the input
+    // so keyboard users keep their place.
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }
 
   // ─── Render (pre-hydration) ──────────────────────────────────────────────
@@ -299,12 +349,13 @@ export function HistoryPageClient() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   aria-label="Buscar registros por nombre de ejercicio"
+                  ref={searchInputRef}
                   className="pl-9 pr-9 font-sans text-sm h-11 sm:h-10 rounded-sm"
                 />
                 {search.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setSearch("")}
+                    onClick={clearSearch}
                     aria-label="Limpiar búsqueda"
                     className="absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-md text-mute hover:text-bone hover:bg-muted flex items-center justify-center"
                   >
@@ -371,6 +422,7 @@ export function HistoryPageClient() {
                     <HistoryRecordRow
                       key={r.id}
                       record={r}
+                      setRowRef={setRowRef}
                       onLoad={handleLoad}
                       onCopy={handleCopy}
                       onDelete={handleDelete}
@@ -425,6 +477,7 @@ function NoMatchesState({ onReset }: { onReset: () => void }) {
 
 interface HistoryRecordRowProps {
   record: SavedWeightRecord;
+  setRowRef: (id: string, el: HTMLButtonElement | null) => void;
   onLoad: (r: SavedWeightRecord) => void;
   onCopy: (r: SavedWeightRecord) => void;
   onDelete: (r: SavedWeightRecord) => void;
@@ -432,6 +485,7 @@ interface HistoryRecordRowProps {
 
 function HistoryRecordRow({
   record,
+  setRowRef,
   onLoad,
   onCopy,
   onDelete,
@@ -473,7 +527,8 @@ function HistoryRecordRow({
           variant="ghost"
           size="sm"
           onClick={() => onLoad(record)}
-          aria-label={`Cargar ${displayName}`}
+          aria-label={`Cargar ${displayName} ${record.totalKg.toFixed(1)}kg`}
+          ref={(el) => setRowRef(record.id, el)}
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-11 sm:h-8 px-3 sm:px-2.5 gap-1.5"
         >
           <ArrowDownToLine className="size-3.5" aria-hidden />
@@ -483,7 +538,7 @@ function HistoryRecordRow({
           variant="ghost"
           size="sm"
           onClick={() => onCopy(record)}
-          aria-label={`Copiar ${displayName}`}
+          aria-label={`Copiar ${displayName} ${record.totalKg.toFixed(1)}kg`}
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-11 sm:h-8 px-3 sm:px-2.5 gap-1.5"
         >
           <Copy className="size-3.5" aria-hidden />
@@ -493,7 +548,7 @@ function HistoryRecordRow({
           variant="ghost"
           size="sm"
           onClick={() => onDelete(record)}
-          aria-label={`Eliminar ${displayName}`}
+          aria-label={`Eliminar ${displayName} ${record.totalKg.toFixed(1)}kg`}
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-destructive hover:bg-muted rounded-md h-11 sm:h-8 px-3 sm:px-2.5 gap-1.5"
         >
           <Trash2 className="size-3.5" aria-hidden />

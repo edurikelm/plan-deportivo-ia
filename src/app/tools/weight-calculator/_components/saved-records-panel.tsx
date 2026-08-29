@@ -205,8 +205,8 @@ function SavedRecordRow({ record, onLoad }: SavedRecordRowProps) {
           variant="ghost"
           size="sm"
           onClick={() => onLoad(record)}
-          aria-label={`Cargar ${record.exercise ?? "esta carga"}`}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-7 px-2.5 gap-1.5"
+          aria-label={`Cargar ${record.exercise ?? "esta carga"} ${record.totalKg.toFixed(1)}kg`}
+          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-11 sm:h-7 px-3 sm:px-2.5 gap-1.5"
         >
           <ArrowDownToLine className="size-3.5" aria-hidden />
           Cargar

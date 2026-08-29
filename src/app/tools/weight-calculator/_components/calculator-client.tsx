@@ -37,6 +37,7 @@ import {
 import {
   addRecord,
   getCalculatorState,
+  isQuotaError,
   setCalculatorState,
 } from "@/lib/storage";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -154,6 +155,13 @@ export function CalculatorClient() {
   // Save-form visibility. The form is mounted only when open (controlled by
   // the footer), so `saveFormOpen` doubles as "should the form be rendered".
   const [saveFormOpen, setSaveFormOpen] = useState(false);
+  // Ref to the "Guardar" trigger so we can return focus to it when the form
+  // closes (per 0017 AC 3 — keyboard users must not lose their place).
+  const guardarButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeSaveForm = useCallback(() => {
+    setSaveFormOpen(false);
+    guardarButtonRef.current?.focus();
+  }, []);
 
   // Foto state
   const [fotoState, setFotoState] = useState<FotoState>({ kind: "idle" });
@@ -514,7 +522,25 @@ export function CalculatorClient() {
       breakdownLine: totals.breakdownLine,
       source: "foto",
     };
-    addRecord(fotoRecord);
+    try {
+      addRecord(fotoRecord);
+    } catch (err) {
+      // Foto attribution is a passive write, not the user's primary action.
+      // We log loudly and surface a toast, but we don't unwind the applied
+      // load — the coach already accepted the breakdown and editing the
+      // bar/discs is the more important next step. The record simply isn't
+      // persisted this time; the auto-log watcher will catch the next
+      // stable state.
+      console.error("[calculator] failed to persist foto record:", err);
+      if (isQuotaError(err)) {
+        toast.error(
+          "Almacenamiento lleno. Borrá registros antiguos desde el historial.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.error("No pudimos registrar el origen de la foto.");
+      }
+    }
     // Seed the dedupe ref so the post-accept auto-log doesn't double-log
     // the same configuration the foto just persisted.
     lastAutoLogHashRef.current = hashState({
@@ -958,8 +984,8 @@ export function CalculatorClient() {
           {saveFormOpen && (
             <SaveRecordForm
               currentState={{ barKg, discs: discs.map(toPersist) }}
-              onSaved={() => setSaveFormOpen(false)}
-              onCancel={() => setSaveFormOpen(false)}
+              onSaved={closeSaveForm}
+              onCancel={closeSaveForm}
             />
           )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -1003,6 +1029,7 @@ export function CalculatorClient() {
                     ? "Sin carga para guardar"
                     : undefined
                 }
+                ref={guardarButtonRef}
                 className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 disabled:opacity-30"
               >
                 <BookmarkPlus className="size-3.5" aria-hidden />

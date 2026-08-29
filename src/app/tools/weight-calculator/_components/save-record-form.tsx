@@ -10,7 +10,7 @@ import {
   type DiscRow,
   type SavedWeightRecord,
 } from "@/lib/calculator";
-import { addRecord, getUniqueExercises } from "@/lib/storage";
+import { addRecord, getUniqueExercises, isQuotaError } from "@/lib/storage";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -99,7 +99,14 @@ export function SaveRecordForm({
       onSaved(record);
     } catch (err) {
       console.error("[save-record-form] failed to persist:", err);
-      toast.error("No pudimos guardar la carga. Probá de nuevo.");
+      if (isQuotaError(err)) {
+        toast.error(
+          "Almacenamiento lleno. Borrá registros antiguos desde el historial.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.error("No pudimos guardar la carga. Probá de nuevo.");
+      }
       setSubmitting(false);
     }
   }

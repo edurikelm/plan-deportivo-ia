@@ -39,3 +39,85 @@ This ticket is the final integration and quality gate. It does not introduce new
 - [ ] No console errors or warnings appear during the end-to-end test (other than the documented corruption warnings).
 - [ ] The umbrella (0012) and tickets 0013, 0014, 0015, 0016 are closed with their post-mortem records following the project's issue-closing convention.
 - [ ] The project documentation (`CONTEXT.md`, `PRODUCT.md`) is in sync with the final implementation; any drift discovered during polish is corrected in this ticket.
+
+## Manual end-to-end test
+
+The script below covers the full coach journey from creating records to reloading them. Run it in a clean browser profile (or with `localStorage` cleared) and report any deviation, console error, or unexpected behavior.
+
+### Setup
+
+- `npm run dev` and open `http://localhost:3000`.
+- DevTools → Application → Local Storage → delete `pd:calculator-records`, `pd:calculator-state`, and `pd:sessions` (clean slate).
+- DevTools → Console → clear + "Preserve log" on.
+
+### Steps
+
+1. **Save a labeled record (manual).**
+   - Go to `/tools/weight-calculator`. Manual tab.
+   - Bar = 20 kg. Add a disc: 25 kg × 1, count 1.
+   - Click `Guardar`. Type "Back Squat" in the input.
+   - Press Enter. Expect: form closes, toast "Carga guardada", focus returns to the `Guardar` button in the footer, total is still 45.0 kg.
+
+2. **Verify the mini-panel.**
+   - Below the bar visualization, the `REGISTROS` section shows one row: "Back Squat", 45.0 kg · 99.2 lb, "hace ahora", button `Cargar`.
+
+3. **Auto-log captures stable states.**
+   - Add another disc: 10 kg × 1, count 1. Wait 2 s without touching anything. (Don't press `Guardar`.)
+   - Refresh the page. Go to `/tools/weight-calculator/history`. There should be 2 records: one labeled "Back Squat" (manual) and one auto-log (no name, "auto-log" badge).
+
+4. **Foto attribution.**
+   - Go back to the calculator. Click the `Foto` tab. Upload an image of a bar with discs (any photo of a loaded barbell).
+   - After the model returns, the preview shows. Click `Aplicar`. Expect: calculator switches to Manual tab with the foto's load applied, toast "Carga aplicada".
+   - Open the history page. The new record has the `foto` source badge (with sparkles icon). Bar + discs match the foto.
+
+5. **Persistence across refresh.**
+   - Refresh the browser tab. The calculator's bar + discs match the last state.
+   - The history page still shows all 3 records.
+
+6. **Search.**
+   - In the history page, type "squat" in the search box. Expect: only "Back Squat" matches; auto-log and foto records are hidden (their `exercise` is null).
+   - Clear the search with the X button. Expect: all records reappear; focus returns to the search input.
+
+7. **Filter chips.**
+   - Click `Auto-log`. Expect: only the auto-log record. The chip is highlighted.
+   - Click `Foto`. Expect: only the foto record. Click `Manual`. Expect: only "Back Squat". Click `Todos`. Expect: all.
+
+8. **Sort.**
+   - Change `Orden` to `Ejercicio A–Z`. Records order by `exercise` (nulls last).
+   - Change to `Más pesados`. Order by `totalKg` desc.
+   - Back to `Más recientes` (default).
+
+9. **Load a record.**
+   - From the history page, click `Cargar` on "Back Squat". Expect: navigates to the calculator; bar and discs already match the record (no flash of empty state).
+   - The total shows 45.0 kg immediately.
+
+10. **Copy a record.**
+    - Back to the history page. Click `Copiar` on "Back Squat". Toast "Copiado al portapapeles".
+    - Paste in a text editor. Expect 3 lines:
+      ```
+      Back Squat
+      20kg + (25kg + 10kg)×2
+      45.0kg · 99.2lb
+      ```
+
+11. **Delete a record.**
+    - Click `Eliminar` on a record. Confirm dialog. Expect: row disappears; focus moves to the next row's `Cargar` button (or the previous if it was the last, or the search input if the list is now empty).
+
+12. **Empty state.**
+    - Delete all records. Expect: empty-state message with link back to the calculator.
+
+13. **Sticky search bar.**
+    - Re-create 5+ records. Scroll the list. Expect: search input + chips + sort selector stay fixed at the top.
+
+14. **Mobile viewport.**
+    - DevTools → toggle device toolbar → iPhone SE (375 × 667). No horizontal overflow. Tap targets feel comfortable (≥ 44 px on mobile).
+
+15. **Keyboard nav.**
+    - With keyboard only (no mouse): Tab through the history page. Every interactive element is reachable. Enter on `Cargar` triggers load. Enter on `Eliminar` triggers confirm.
+
+16. **Cross-tab sync.**
+    - Open the calculator in one tab, the history in another. In the calculator, `Guardar` a new record. The history tab's list updates (storage event propagates; even if the tab was in the background, the DOM is up to date when you switch back).
+
+### Pass criteria
+
+All 16 steps behave as described, no errors in the console (warnings about corrupt data are expected only if you manually break `localStorage`). Any failure → report with the step number and the observed vs. expected behavior.

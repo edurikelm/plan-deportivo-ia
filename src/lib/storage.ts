@@ -18,6 +18,24 @@ function dispatchStorage(key: string, newValue: string): void {
   );
 }
 
+/**
+ * Returns `true` when the thrown error indicates the browser's localStorage
+ * quota was exceeded. Centralized here so that every persistence call site
+ * (save form, foto accept, history delete) can distinguish a quota error
+ * (actionable: "borrar registros antiguos") from a generic IO error
+ * ("probá de nuevo"). Both `QuotaExceededError` (Chromium / Firefox) and
+ * `NS_ERROR_DOM_QUOTA_REACHED` (older Firefox) are accepted.
+ */
+export function isQuotaError(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return (
+      err.name === "QuotaExceededError" ||
+      err.name === "NS_ERROR_DOM_QUOTA_REACHED"
+    );
+  }
+  return false;
+}
+
 // ─── Migration ───────────────────────────────────────────────────────────────
 
 /**
