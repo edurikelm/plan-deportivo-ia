@@ -1,8 +1,8 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: 0012-saved-weight-records
-ready-for-agent: true
 depends_on: []
 blocks:
   - "0014"

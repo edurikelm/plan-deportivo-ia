@@ -36,3 +36,6 @@ pnpm-debug.log*
 
 # OpenCode
 .opencode/*.tmp
+
+# Impeccable (external tool runtime data — sessions, snapshots, server tokens)
+.impeccable/
