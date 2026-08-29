@@ -1,4 +1,5 @@
 import type { CrossFitPlan, CrossFitSessionInput } from "./modalities/crossfit";
+import type { DiscRow } from "./calculator/schemas";
 
 // ─── Modality (system-defined, not user-created) ────────────────────────────
 
@@ -51,3 +52,40 @@ export const EMPTY_SAVED_SESSION: Omit<SavedSession, "id" | "createdAt"> = {
   },
   title: "",
 };
+
+// ─── SavedWeightRecord (calculator history) ──────────────────────────────────
+
+/**
+ * How a `SavedWeightRecord` was captured.
+ *
+ * - `auto-log` — passive capture by the calculator's debounced watcher.
+ *   `exercise` is `null` for these; the record exists only as telemetry.
+ * - `manual` — explicitly saved by the Entrenador through the Save form in
+ *   the calculator footer. `exercise` is required and non-null.
+ * - `foto` — captured immediately when the Entrenador accepts a load from
+ *   the Foto tab. `exercise` is `null`; the photo origin is preserved even
+ *   if the coach edits the bar/discs afterward.
+ */
+export type RecordSource = "auto-log" | "manual" | "foto";
+
+/**
+ * A persisted snapshot of a bar + disc calculation in the calculator.
+ *
+ * `discs` is a frozen snapshot of the rows at the moment the record was
+ * captured — never a live reference to the calculator's current state.
+ * Editing the calculator after the record is created does not mutate it.
+ */
+export interface SavedWeightRecord {
+  id: string;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+  /** Required for `manual` and `foto`; null for `auto-log`. */
+  exercise: string | null;
+  barKg: number;
+  discs: DiscRow[];
+  totalKg: number;
+  totalLb: number;
+  /** Pre-formatted line for display in lists (e.g. "20kg + (25kg + 10kg)×2"). */
+  breakdownLine: string;
+  source: RecordSource;
+}

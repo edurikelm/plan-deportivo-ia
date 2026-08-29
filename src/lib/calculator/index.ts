@@ -1,6 +1,8 @@
 export {
   BreakdownSchema,
   DiscRowSchema,
+  RecordSourceSchema,
+  SavedWeightRecordSchema,
   calculateBreakdownFromImage,
   crossCheckBreakdown,
   formatBreakdownLine,
@@ -8,6 +10,15 @@ export {
   type CalculatorState,
   type CrossCheckResult,
   type DiscRow,
+  type RecordSource,
+  type SavedWeightRecord,
   VISION_MODEL,
   VISION_SYSTEM_PROMPT,
 } from "./schemas";
+export {
+  computeTotals,
+  dedupeExercises,
+  hashState,
+  normalizeExerciseName,
+  type ComputedTotals,
+} from "./history";

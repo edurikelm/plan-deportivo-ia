@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   ArrowLeft,
+  BookmarkPlus,
   Check,
   Copy,
   ImagePlus,
@@ -28,13 +29,19 @@ import {
   type Breakdown,
   type CalculatorState,
   type DiscRow,
+  type SavedWeightRecord,
+  computeTotals,
   formatBreakdownLine,
+  hashState,
 } from "@/lib/calculator";
 import {
+  addRecord,
   getCalculatorState,
   setCalculatorState,
 } from "@/lib/storage";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { SaveRecordForm } from "./save-record-form";
+import { SavedRecordsPanel } from "./saved-records-panel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +70,13 @@ const COMMON_BAR_KG = [15, 20] as const;
 const KG_PER_LB = 2.20462;
 const LB_PER_KG = 1 / KG_PER_LB;
 
+// Auto-log debounce. Deliberately larger than the draft-save debounce (250ms)
+// so that a quick burst of typing collapses into a single persisted state.
+// Below this threshold the coach is still "moving" the calculator; above it
+// they have settled on a load. 1500ms matches the user mental model of
+// "I just finished typing" without forcing them to wait.
+const AUTO_LOG_DEBOUNCE_MS = 1500;
+
 // Chalk-disc visual scaling. Width of each rendered disc-block is computed
 // as `clamp(MIN, weight_kg * SCALE, MAX)` so the visualization carries real
 // information (heavier discs are visibly wider). The scale is intentionally
@@ -79,25 +93,11 @@ const DISC_WIDTH_SCALE = 3.2; // px per kg
 function lbToKg(lb: number): number {
   return lb * LB_PER_KG;
 }
-function kgToLb(kg: number): number {
-  return kg * KG_PER_LB;
-}
 
 function toPersist(disc: DiscRowUI): DiscRow {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- id is intentionally discarded
   const { id: _id, ...rest } = disc;
   return rest;
-}
-
-function computeTotals(state: CalculatorState): { kg: number; lb: number } {
-  const discKg = state.discs.reduce(
-    (acc, d) =>
-      acc +
-      2 * (d.unit === "kg" ? d.weight * d.count : lbToKg(d.weight) * d.count),
-    0,
-  );
-  const kg = state.barKg + discKg;
-  return { kg, lb: kgToLb(kg) };
 }
 
 /**
@@ -151,6 +151,9 @@ export function CalculatorClient() {
   const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("kg");
   const [customBarKg, setCustomBarKg] = useState<string>("");
   const [showCustomBar, setShowCustomBar] = useState(false);
+  // Save-form visibility. The form is mounted only when open (controlled by
+  // the footer), so `saveFormOpen` doubles as "should the form be rendered".
+  const [saveFormOpen, setSaveFormOpen] = useState(false);
 
   // Foto state
   const [fotoState, setFotoState] = useState<FotoState>({ kind: "idle" });
@@ -158,6 +161,15 @@ export function CalculatorClient() {
   const fotoAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Auto-log refs. `lastAutoLogHashRef` is the dedupe key: the watcher skips
+  // a tick if the new state's hash matches the last one we persisted. The
+  // ref starts as `null` and is seeded on hydration (see below) so the
+  // initial paint doesn't auto-log. `fotoBusyRef` is the gate that pauses
+  // the watcher while the Foto tab is in flight, so a photo analysis
+  // doesn't get a stale log of intermediate state.
+  const lastAutoLogHashRef = useRef<string | null>(null);
+  const fotoBusyRef = useRef<boolean>(false);
 
   // ─── Hydration ─────────────────────────────────────────────────────────────
 
@@ -170,6 +182,14 @@ export function CalculatorClient() {
     setDiscs(
       saved.discs.map((d, i) => ({ ...d, id: `disc-${i}-${Date.now()}` })),
     );
+    // Seed the auto-log dedupe ref with the hydrated state. Without this,
+    // the first user edit after refresh would compare against `null` and
+    // always produce a log — even if the coach didn't change anything
+    // visible. With the seed, an unchanged hydrated state dedupes to itself.
+    lastAutoLogHashRef.current = hashState({
+      barKg: saved.barKg,
+      discs: saved.discs,
+    });
   }, [hydrated]);
 
   // ─── Persistence (debounced) ───────────────────────────────────────────────
@@ -179,6 +199,50 @@ export function CalculatorClient() {
     const id = setTimeout(() => {
       setCalculatorState({ barKg, discs: discs.map(toPersist) });
     }, 250);
+    return () => clearTimeout(id);
+  }, [barKg, discs, hydrated]);
+
+  // ─── Auto-log watcher (debounced, deduplicated) ────────────────────────────
+
+  useEffect(() => {
+    // Wait for hydration to seed the dedupe ref before we start.
+    if (!hydrated || !hasSyncedRef.current) return;
+
+    // Skip the initial empty state — no load configured means nothing to log.
+    if (discs.length === 0 && barKg === DEFAULT_BAR_KG) return;
+
+    // Re-check inside the timeout: a photo analysis may have started
+    // during the debounce window. We don't want the auto-log to fire on
+    // state captured while a Foto request was in flight.
+    if (fotoBusyRef.current) return;
+
+    const currentHash = hashState({ barKg, discs });
+    if (currentHash === lastAutoLogHashRef.current) return;
+
+    const id = setTimeout(() => {
+      // Re-check at fire time. The foto state may have flipped between
+      // scheduling and execution; the hash too. Bail out cleanly.
+      if (fotoBusyRef.current) return;
+      if (discs.length === 0 && barKg === DEFAULT_BAR_KG) return;
+      const finalHash = hashState({ barKg, discs });
+      if (finalHash === lastAutoLogHashRef.current) return;
+
+      const totals = computeTotals({ barKg, discs });
+      const record: SavedWeightRecord = {
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        exercise: null,
+        barKg,
+        discs: discs.map(toPersist),
+        totalKg: totals.totalKg,
+        totalLb: totals.totalLb,
+        breakdownLine: totals.breakdownLine,
+        source: "auto-log",
+      };
+      addRecord(record);
+      lastAutoLogHashRef.current = finalHash;
+    }, AUTO_LOG_DEBOUNCE_MS);
+
     return () => clearTimeout(id);
   }, [barKg, discs, hydrated]);
 
@@ -198,6 +262,14 @@ export function CalculatorClient() {
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
+  }, [fotoState.kind]);
+
+  // Sync fotoBusyRef so the auto-log watcher can read it from inside its
+  // setTimeout without subscribing to fotoState (which would re-trigger
+  // the debounce on every photo state transition). The ref updates
+  // synchronously when the effect re-runs.
+  useEffect(() => {
+    fotoBusyRef.current = fotoState.kind === "analyzing";
   }, [fotoState.kind]);
 
   useEffect(() => {
@@ -261,6 +333,43 @@ export function CalculatorClient() {
     setShowCustomBar(false);
     setCustomBarKg("");
   }, []);
+
+  // ─── Cargar (rehidratar desde un registro guardado) ───────────────────────
+
+  /**
+   * Replaces the calculator's current state with a saved record's snapshot.
+   * If the current state is already identical to the record, this is a
+   * silent no-op. If they differ, a confirmation dialog guards against
+   * silently overwriting work the coach has in progress.
+   */
+  const handleLoadRecord = useCallback(
+    (record: SavedWeightRecord) => {
+      const currentHash = hashState({
+        barKg,
+        discs: discs.map(toPersist),
+      });
+      const recordHash = hashState({
+        barKg: record.barKg,
+        discs: record.discs,
+      });
+      if (currentHash === recordHash) {
+        // Already loaded — nothing to do, no toast, no dialog.
+        return;
+      }
+      const label = record.exercise ?? "esta carga";
+      if (
+        !window.confirm(
+          `¿Reemplazar la carga actual con "${label}"? Se va a perder lo que no hayas guardado.`,
+        )
+      ) {
+        return;
+      }
+      setBarKg(record.barKg);
+      setDiscs(record.discs.map((d) => ({ ...d, id: newDiscId() })));
+      toast.success("Carga cargada");
+    },
+    [barKg, discs],
+  );
 
   // ─── Foto handlers ─────────────────────────────────────────────────────────
 
@@ -374,13 +483,44 @@ export function CalculatorClient() {
 
   function acceptFoto() {
     if (fotoState.kind !== "preview") return;
-    setBarKg(fotoState.breakdown.barKg);
+    const breakdown = fotoState.breakdown;
+    setBarKg(breakdown.barKg);
     setDiscs(
-      fotoState.breakdown.discs.map((d) => ({ ...d, id: newDiscId() })),
+      breakdown.discs.map((d) => ({ ...d, id: newDiscId() })),
     );
     setFotoState({ kind: "idle" });
     setActiveTab("manual");
     toast.success("Carga aplicada");
+
+    // Persist a photo-attribution record immediately, not through the
+    // debounced auto-log. The reason: the coach will often edit the
+    // applied load right after accepting the photo, and the auto-log
+    // debounce would resolve to the *edited* state with no trace of the
+    // photo origin. The foto record is the canonical "this came from a
+    // photo" marker; the post-edit state will be picked up by a separate
+    // auto-log entry (which is fine — they have different sources).
+    const totals = computeTotals({
+      barKg: breakdown.barKg,
+      discs: breakdown.discs,
+    });
+    const fotoRecord: SavedWeightRecord = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      exercise: null,
+      barKg: breakdown.barKg,
+      discs: breakdown.discs,
+      totalKg: totals.totalKg,
+      totalLb: totals.totalLb,
+      breakdownLine: totals.breakdownLine,
+      source: "foto",
+    };
+    addRecord(fotoRecord);
+    // Seed the dedupe ref so the post-accept auto-log doesn't double-log
+    // the same configuration the foto just persisted.
+    lastAutoLogHashRef.current = hashState({
+      barKg: breakdown.barKg,
+      discs: breakdown.discs,
+    });
   }
 
   function cancelFoto() {
@@ -785,6 +925,11 @@ export function CalculatorClient() {
                 unit={displayUnit}
               />
             </section>
+
+            {/* Saved records — last 5 labeled, plus a link to the full
+                history. Only mounted in the Manual tab so the Photo flow's
+                attention stays on the preview. */}
+            <SavedRecordsPanel onLoad={handleLoadRecord} />
           </div>
         )}
 
@@ -809,54 +954,81 @@ export function CalculatorClient() {
       {/* ── Sticky TOTAL footer ─────────────────────────────────────── */}
       <footer className="sticky bottom-0 bg-canvas border-t border-hairline">
 
-        <div className="mx-auto max-w-2xl px-5 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
-              Total · {discs.length === 0 ? "solo barra" : `${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} de disco`}
-            </p>
-            <p className="font-mono tabular-nums text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
-              <span className="whitespace-nowrap">
-                {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
-                  ? "—"
-                  : displayUnit === "kg"
-                    ? `${totals.kg.toFixed(1)} kg`
-                    : `${totals.lb.toFixed(1)} lb`}
-              </span>
-              {displayUnit === "kg" && discs.length > 0 && (
-                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
-                  · {totals.lb.toFixed(1)} lb
+        <div className="mx-auto max-w-2xl px-5 md:px-8 py-4 flex flex-col gap-3">
+          {saveFormOpen && (
+            <SaveRecordForm
+              currentState={{ barKg, discs: discs.map(toPersist) }}
+              onSaved={() => setSaveFormOpen(false)}
+              onCancel={() => setSaveFormOpen(false)}
+            />
+          )}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
+                Total · {discs.length === 0 ? "solo barra" : `${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} de disco`}
+              </p>
+              <p className="font-mono tabular-nums text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
+                <span className="whitespace-nowrap">
+                  {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
+                    ? "—"
+                    : displayUnit === "kg"
+                      ? `${totals.totalKg.toFixed(1)} kg`
+                      : `${totals.totalLb.toFixed(1)} lb`}
                 </span>
-              )}
-              {displayUnit === "lb" && discs.length > 0 && (
-                <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
-                  · {totals.kg.toFixed(1)} kg
-                </span>
-              )}
-            </p>
-            <p className="font-mono tabular-nums text-[0.8125rem] text-mute leading-snug mt-2">
-              {discs.length === 0 ? `${barKg}kg` : breakdownLine}
-            </p>
-          </div>
+                {displayUnit === "kg" && discs.length > 0 && (
+                  <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
+                    · {totals.totalLb.toFixed(1)} lb
+                  </span>
+                )}
+                {displayUnit === "lb" && discs.length > 0 && (
+                  <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
+                    · {totals.totalKg.toFixed(1)} kg
+                  </span>
+                )}
+              </p>
+              <p className="font-mono tabular-nums text-[0.8125rem] text-mute leading-snug mt-2">
+                {discs.length === 0 ? `${barKg}kg` : breakdownLine}
+              </p>
+            </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const text = displayUnit === "kg"
-                ? `${totals.kg.toFixed(1)} kg · ${totals.lb.toFixed(1)} lb\n${breakdownLine}`
-                : `${totals.lb.toFixed(1)} lb · ${totals.kg.toFixed(1)} kg\n${breakdownLine}`;
-              navigator.clipboard.writeText(text).then(
-                () => toast.success("Carga copiada"),
-                () => toast.error("No se pudo copiar"),
-              );
-            }}
-            disabled={discs.length === 0}
-            aria-label="Copiar carga"
-            className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 shrink-0 disabled:opacity-30 self-start sm:self-auto"
-          >
-            <Copy className="size-3.5" aria-hidden />
-            Copiar
-          </Button>
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSaveFormOpen(true)}
+                disabled={discs.length === 0 && barKg === DEFAULT_BAR_KG}
+                aria-label="Guardar carga con etiqueta"
+                title={
+                  discs.length === 0 && barKg === DEFAULT_BAR_KG
+                    ? "Sin carga para guardar"
+                    : undefined
+                }
+                className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 disabled:opacity-30"
+              >
+                <BookmarkPlus className="size-3.5" aria-hidden />
+                Guardar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const text = displayUnit === "kg"
+                    ? `${totals.totalKg.toFixed(1)} kg · ${totals.totalLb.toFixed(1)} lb\n${breakdownLine}`
+                    : `${totals.totalLb.toFixed(1)} lb · ${totals.totalKg.toFixed(1)} kg\n${breakdownLine}`;
+                  navigator.clipboard.writeText(text).then(
+                    () => toast.success("Carga copiada"),
+                    () => toast.error("No se pudo copiar"),
+                  );
+                }}
+                disabled={discs.length === 0}
+                aria-label="Copiar carga"
+                className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-9 px-3 gap-1.5 disabled:opacity-30"
+              >
+                <Copy className="size-3.5" aria-hidden />
+                Copiar
+              </Button>
+            </div>
+          </div>
         </div>
 
       </footer>

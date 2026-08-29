@@ -30,6 +30,38 @@ export type CalculatorState = {
   discs: DiscRow[];
 };
 
+// ─── SavedWeightRecord (persisted history entry) ────────────────────────────
+
+import type { RecordSource, SavedWeightRecord } from "../types";
+
+export const RecordSourceSchema = z.enum(["auto-log", "manual", "foto"]);
+
+export const SavedWeightRecordSchema = z.object({
+  id: z.string().min(1),
+  // We accept any non-empty string for createdAt and trust the runtime to
+  // produce ISO 8601. Strict ISO validation would over-reject records
+  // written by older code paths before we standardized the format.
+  createdAt: z.string().min(1),
+  // null only for auto-log; manual/foto require a non-empty trimmed name.
+  exercise: z
+    .string()
+    .trim()
+    .min(1, "El nombre del ejercicio no puede estar vacío")
+    .max(80, "El nombre del ejercicio es demasiado largo")
+    .nullable(),
+  barKg: z.number().positive("El peso de la barra debe ser mayor a 0"),
+  discs: z.array(DiscRowSchema),
+  totalKg: z.number().positive(),
+  totalLb: z.number().positive(),
+  breakdownLine: z
+    .string()
+    .min(1, "El desglose no puede estar vacío")
+    .max(200, "El desglose es demasiado largo"),
+  source: RecordSourceSchema,
+});
+
+export type { RecordSource, SavedWeightRecord };
+
 // ─── Vision model constants ─────────────────────────────────────────────────
 
 export const VISION_MODEL = "MiniMax-M3";
