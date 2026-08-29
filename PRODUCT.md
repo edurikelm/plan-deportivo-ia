@@ -84,7 +84,7 @@ Copy (clipboard) · Export `.md` (`{modalityId}-{YYYY-MM-DD}.md`) · Regenerate 
 - Future modalities follow the same registry pattern: context + inputSchema + outputSchema + converter + render component.
 - **Aleatorio** WOD format is offered as a selectable option to the Entrenador. The system resolves it internally to a concrete format before calling the LLM. The output `sections.wod.format` will always be a concrete value, never "Aleatorio".
 - No video URL in this scope.
-- Calculadora de Pesos puede registrar cálculos de peso con etiqueta de ejercicio (auto-log pasivo + Guardar explícito) y mantener un historial durable. El mini-panel y la página completa de historial son las dos superficies. No convierte la calculadora en una modalidad (sigue siendo utility manual, ADR-0007 + ADR-0009).
+- Calculadora de Pesos puede registrar cálculos de peso con etiqueta de ejercicio (Guardar explícito + atribución de Foto) y mantener un historial durable. El mini-panel y la página completa de historial son las dos superficies. No convierte la calculadora en una modalidad (sigue siendo utility manual, ADR-0007 + ADR-0009). El feature de auto-log pasivo que estaba en el spec original fue removido durante 0017 polish (más ruido que valor en uso real).
 
 ### Open / deliberately undecided
 

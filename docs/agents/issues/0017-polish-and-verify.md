@@ -1,8 +1,8 @@
 ---
 label: chore
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: 0012-saved-weight-records
-ready-for-agent: true
 depends_on:
   - "0013"
   - "0014"

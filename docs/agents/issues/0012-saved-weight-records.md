@@ -1,8 +1,8 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: null
-ready-for-agent: true
 adr: 0009-saved-weight-records
 ---
 
@@ -130,3 +130,47 @@ El proyecto **no tiene infra de tests** hoy (no hay `vitest`, `jest`, ni `node:t
 - [0017 — Polish, edge cases, and end-to-end verification](./0017-polish-and-verify.md) — blocked by 0013, 0014, 0015, 0016
 
 > Note: an earlier breakdown with 7 horizontal-layer tickets (0013-0019) was archived to `.archive/` when the work was re-cut into the 5 vertical slices above. The archived files are kept for historical reference only and are not part of the active work.
+
+## Resultado
+
+The umbrella shipped. Net effect: the calculator moved from being a purely ephemeral utility to having a durable history surface, while staying true to the ADR-0007 constraint of remaining a `/tools` utility (not becoming a modality).
+
+### Vertical slice tickets
+
+- **0013 — Save a labeled record** — closed (commit `5a11c43`). The Save form in the sticky footer; `SavedWeightRecord` model; storage helpers; autocomplete from prior saves. `addRecord` with the (later-removed) auto-log cap.
+- **0014 — Auto-log captures stable states** — closed (`5a11c43`). Debounced watcher that persisted every stable state as `source: "auto-log"`. **Removed during 0017 polish — see pivot below.**
+- **0015 — Mini-panel in the calculator** — closed (`5a11c43`). Last 5 labeled records below the bar visualization, with `Cargar` action and link to the full history.
+- **0016 — Full history page** — closed (`fbb9887`). `/tools/weight-calculator/history` with search, filter chips, sort, per-row Cargar/Copiar/Eliminar, sticky search bar, empty/no-matches states. 14/14 ACs verified by the static verifier sub-agent.
+- **0017 — Polish + verification** — closed (this commit). A11y (focus management on save-form close / history delete / search X; aria-labels with weight context; 44px tap targets on mobile), localStorage quota errors with actionable toasts, scripted 16-step manual e2e, **the auto-log pivot** (see below), doc sync (CONTEXT.md, PRODUCT.md).
+
+### Pivot during polish: auto-log removed
+
+Original spec called for two coexisting capture modes: a debounced passive auto-log (`source: "auto-log"`) and the explicit `Guardar con etiqueta`. While dogfooding the e2e in 0017, the team observed that the auto-log produced more noise than value: every typed change was logged, the history page filled up with `exercise: null` rows, and the duplicate rows next to explicit saves were confusing.
+
+Decision: stop producing new auto-logs. Only `source: "manual"` (from the Save form) and `source: "foto"` (from the Foto accept) are now generated. The `auto-log` source variant is kept in the `RecordSource` enum and the Zod schema so any stale entry from older builds still validates; the schema silently discards anything that fails the enum on read. The 200-entry cap on auto-logs is gone (no longer needed). The "Auto-log" filter chip in the history page UI is removed (dead UI).
+
+Net storage win: ~200 entries × ~200 bytes ≈ 40 KB per coach no longer accumulated. Net code: −68 lines across 5 files in the pivot commit (`39a7afe`).
+
+### Documentation updated
+
+- `CONTEXT.md` — `SavedWeightRecord` section, storage schema line, and glossary updated to reflect that only `manual` and `foto` are produced. `auto-log` documented as legacy/backward-compat.
+- `PRODUCT.md` — capability statement updated to drop the "auto-log pasivo" wording.
+- `docs/agents/issues/0017-polish-and-verify.md` — full "Resultado" section in the ticket body, including the pivot as a flagged decision.
+- ADR-0009 left as historical record. The pivot is a product change worth a new ADR if the team wants the decision formally documented; not done in this umbrella closure.
+
+### Evidence
+
+- `git log --grep="0012" --grep="saved weight records" --grep="polish" --grep="pivot"` to see the 6 commit chain that built the feature.
+- `docs/agents/issues/0017-polish-and-verify.md` has the 16-step manual e2e that the team ran against `ae48fe6` (post-polish) and `39a7afe` (post-pivot). All steps pass.
+- The team ran the e2e on a clean profile and confirmed: no auto-logs persist; only explicit `Guardar` and `Foto` records survive a refresh; the history page is clean.
+
+### Open work (intentionally not in this umbrella)
+
+The umbrella spec explicitly deferred several items. None of them block closure; they live in the "Out of scope" section above and on the roadmap:
+
+- **Test infra** — no Vitest/Jest/node:test. Verification was manual scripted e2e. The pure helpers in `lib/calculator/history.ts` (`computeTotals`, `hashState`, `normalizeExerciseName`, `dedupeExercises`) are the natural seam if/when the team adds Vitest.
+- **Bulk delete / multi-select** — only single-row delete for now.
+- **Edit inline** — `updateRecord` is exported but unused in UI; the team's flow is delete + create.
+- **Export CSV/JSON** — the history is localStorage; export would be a one-off script, not yet requested.
+- **Sync between devices** — local-first by ADR-0001; no change.
+- **Registry of movements** — exercise stays a free string; autocomplete helps consistency.
