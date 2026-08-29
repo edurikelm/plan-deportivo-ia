@@ -147,17 +147,6 @@ export function setCalculatorState(state: CalculatorState): void {
 
 const RECORDS_KEY = "pd:calculator-records";
 
-/**
- * Hard cap on the number of auto-logged records kept in storage. When the
- * cap is exceeded by a new `auto-log` insert, the oldest auto-log is
- * discarded. Records with `source: "manual"` or `"foto"` are never
- * discarded — only auto-logs, which are pure telemetry.
- *
- * The cap is conservative (200 entries × ~200 bytes ≈ 40 KB) to leave
- * plenty of headroom under the 5 MB localStorage quota.
- */
-const AUTO_LOG_CAP = 200;
-
 function setRecords(records: SavedWeightRecord[]): void {
   const json = JSON.stringify(records);
   localStorage.setItem(RECORDS_KEY, json);
@@ -221,30 +210,19 @@ export function getRecords(): SavedWeightRecord[] {
 }
 
 /**
- * Appends a record to the history. If the record is an `auto-log` and the
- * total auto-log count would exceed the cap, the oldest auto-logged
- * record is discarded to make room. Manual and foto records are always
- * appended without affecting the auto-log cap.
+ * Appends a record to the history. Records are kept in insertion order
+ * (oldest first); the read path sorts by `createdAt` as needed.
+ *
+ * Note: the `auto-log` source variant is no longer produced by the
+ * calculator (it was a passive watcher that created more noise than
+ * value — see 0017 post-mortem). The variant remains in the
+ * `RecordSource` type for backward compat with `localStorage` entries
+ * written by older builds; stale records are silently dropped on the
+ * next read by the Zod schema's `enum` check.
  */
 export function addRecord(record: SavedWeightRecord): void {
   const current = getRecords();
-
-  if (record.source === "auto-log") {
-    // Cap on auto-logs only — drop the oldest auto-log if we'd exceed the cap.
-    const autoLogs = current.filter((r) => r.source === "auto-log");
-    const manualOrFoto = current.filter((r) => r.source !== "auto-log");
-    if (autoLogs.length >= AUTO_LOG_CAP) {
-      // Sort by createdAt asc; drop the oldest.
-      autoLogs.sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      );
-      autoLogs.shift();
-    }
-    setRecords([...manualOrFoto, ...autoLogs, record]);
-  } else {
-    setRecords([...current, record]);
-  }
+  setRecords([...current, record]);
 }
 
 /**

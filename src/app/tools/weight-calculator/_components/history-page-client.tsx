@@ -31,7 +31,6 @@ type SortKey = "date-desc" | "date-asc" | "exercise" | "weight-desc";
 
 const SOURCE_FILTERS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "Todos" },
-  { value: "auto-log", label: "Auto-log" },
   { value: "manual", label: "Manual" },
   { value: "foto", label: "Foto" },
 ];

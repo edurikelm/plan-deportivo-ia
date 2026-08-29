@@ -61,9 +61,9 @@ The script below covers the full coach journey from creating records to reloadin
 2. **Verify the mini-panel.**
    - Below the bar visualization, the `REGISTROS` section shows one row: "Back Squat", 45.0 kg · 99.2 lb, "hace ahora", button `Cargar`.
 
-3. **Auto-log captures stable states.**
-   - Add another disc: 10 kg × 1, count 1. Wait 2 s without touching anything. (Don't press `Guardar`.)
-   - Refresh the page. Go to `/tools/weight-calculator/history`. There should be 2 records: one labeled "Back Squat" (manual) and one auto-log (no name, "auto-log" badge).
+3. **No auto-log fires on stable states.**
+   - Add another disc: 10 kg × 1, count 1. Wait 5 s without touching anything. (Don't press `Guardar`.)
+   - Refresh the page. Go to `/tools/weight-calculator/history`. There should still be **1 record** (the "Back Squat" manual save from step 1). The auto-log feature was removed in 0017 (it created more noise than value — see post-mortem below).
 
 4. **Foto attribution.**
    - Go back to the calculator. Click the `Foto` tab. Upload an image of a bar with discs (any photo of a loaded barbell).
@@ -121,3 +121,34 @@ The script below covers the full coach journey from creating records to reloadin
 ### Pass criteria
 
 All 16 steps behave as described, no errors in the console (warnings about corrupt data are expected only if you manually break `localStorage`). Any failure → report with the step number and the observed vs. expected behavior.
+
+## Resultado
+
+The umbrella 0012 was the first feature to ship a "save + history" surface on the calculator. The 5 vertical slices (0013-0016) merged in order; this ticket (0017) added the polish + verification pass. Net effect of the work:
+
+- **End-to-end manual save flow** works as specified: typed bar + discs → click Guardar → form inline in the footer → record with `source: "manual"`, `exercise: "Back Squat"`, snapshot of bar/discs, computed totals.
+- **Mini-panel** in the calculator shows the last 5 labeled records with relative dates and a `Cargar` action.
+- **Full history page** at `/tools/weight-calculator/history`: search (case-insensitive on `exercise`), source filter chips (Todos / Manual / Foto), sort (Más recientes / Más antiguos / Ejercicio A-Z / Más pesados), per-row Cargar / Copiar / Eliminar, sticky search/filter bar, empty state, no-matches state. Tap targets ≥ 44 px en mobile.
+- **Foto attribution** persists a `source: "foto"` record when the coach accepts a photo breakdown. The attribution is immediate (not debounced) so post-accept edits don't lose the origin.
+- **localStorage full** surfaces an actionable toast ("Almacenamiento lleno. Borrá registros antiguos desde el historial.") instead of a silent failure.
+- **Focus management**: save form returns focus to the trigger on close; history delete moves focus to the next surviving row's `Cargar`; search X returns focus to the input.
+- **aria-labels** on every actionable control include the relevant context (exercise name + total weight).
+
+### Cambios
+
+- `src/lib/storage.ts` — quota-error helper `isQuotaError`; simplified `addRecord` (no more auto-log cap).
+- `src/lib/calculator/history.ts` — `hashState` kept (used by `handleLoadRecord`).
+- `src/app/tools/weight-calculator/_components/calculator-client.tsx` — removed auto-log watcher, `lastAutoLogHashRef`, `fotoBusyRef`, and the foto-state sync effect. Added `guardarButtonRef` + `closeSaveForm` for focus return. Wrapped `addRecord(fotoRecord)` in try/catch with quota-aware toast.
+- `src/app/tools/weight-calculator/_components/save-record-form.tsx` — quota-aware error message in the catch.
+- `src/app/tools/weight-calculator/_components/saved-records-panel.tsx` — `Cargar` button bumped to 44 px on mobile, aria-label includes the total weight.
+- `src/app/tools/weight-calculator/_components/history-page-client.tsx` — focus management on delete and search X; aria-labels with weight; removed the "Auto-log" filter chip (dead UI after the auto-log removal).
+- `src/app/tools/weight-calculator/history/page.tsx` — new server shell (no changes after 0016).
+- `docs/agents/issues/0016-history-page.md` — closed with post-mortem (see separate commit).
+- `docs/agents/issues/0013-save-labeled-record.md`, `0014-auto-log.md`, `0015-mini-panel.md` — closed in earlier housekeeping.
+- `docs/agents/issues/0012-saved-weight-records.md` — closed with umbrella summary.
+
+### Pivots / decisions worth flagging
+
+- **Auto-log removed during polish.** The original spec called for a passive debounced watcher that captured every stable state as `source: "auto-log"`. In practice, while dogfooding the e2e, the team observed that the auto-log filled the history with `exercise: null` rows and made the page noisier than the value of the safety net justified. Decision: stop producing new auto-logs entirely. The `auto-log` source variant is kept in the `RecordSource` enum so any stale entry written by older builds still validates through Zod; it'll be dropped on next read if it fails the new product reality. Net storage win: ~200 entries × ~200 bytes ≈ 40 KB no longer accumulated per coach. Documentation updates reflect this in `CONTEXT.md` and the umbrella close-out.
+- **Foto attribution kept as the only "implicit" source.** It requires explicit user action (clicking `Aplicar` on the preview) and preserves origin through post-accept edits, which is a different trade-off than the auto-log's "everything I touched".
+- **No test infra added.** The umbrella explicitly deferred test infra to a separate PR. This ticket's verification is the manual end-to-end script above. The pure helpers in `lib/calculator/history.ts` are the seam where tests would land first if/when the team adds Vitest.

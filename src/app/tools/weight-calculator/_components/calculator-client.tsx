@@ -71,13 +71,6 @@ const COMMON_BAR_KG = [15, 20] as const;
 const KG_PER_LB = 2.20462;
 const LB_PER_KG = 1 / KG_PER_LB;
 
-// Auto-log debounce. Deliberately larger than the draft-save debounce (250ms)
-// so that a quick burst of typing collapses into a single persisted state.
-// Below this threshold the coach is still "moving" the calculator; above it
-// they have settled on a load. 1500ms matches the user mental model of
-// "I just finished typing" without forcing them to wait.
-const AUTO_LOG_DEBOUNCE_MS = 1500;
-
 // Chalk-disc visual scaling. Width of each rendered disc-block is computed
 // as `clamp(MIN, weight_kg * SCALE, MAX)` so the visualization carries real
 // information (heavier discs are visibly wider). The scale is intentionally
@@ -170,14 +163,13 @@ export function CalculatorClient() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // Auto-log refs. `lastAutoLogHashRef` is the dedupe key: the watcher skips
-  // a tick if the new state's hash matches the last one we persisted. The
-  // ref starts as `null` and is seeded on hydration (see below) so the
-  // initial paint doesn't auto-log. `fotoBusyRef` is the gate that pauses
-  // the watcher while the Foto tab is in flight, so a photo analysis
-  // doesn't get a stale log of intermediate state.
-  const lastAutoLogHashRef = useRef<string | null>(null);
-  const fotoBusyRef = useRef<boolean>(false);
+  // Auto-log was removed (see 0017 post-mortem). Previously a debounced
+  // watcher persisted every stable state to `pd:calculator-records` as
+  // a passive safety net, but in practice it created more noise than
+  // value: every typed change was logged, the history page got crowded
+  // with `exercise: null` rows, and coaches found the duplicates
+  // confusing. Now the only persistence paths are the explicit Save
+  // form (`source: "manual"`) and the Foto accept (`source: "foto"`).
 
   // ─── Hydration ─────────────────────────────────────────────────────────────
 
@@ -190,14 +182,6 @@ export function CalculatorClient() {
     setDiscs(
       saved.discs.map((d, i) => ({ ...d, id: `disc-${i}-${Date.now()}` })),
     );
-    // Seed the auto-log dedupe ref with the hydrated state. Without this,
-    // the first user edit after refresh would compare against `null` and
-    // always produce a log — even if the coach didn't change anything
-    // visible. With the seed, an unchanged hydrated state dedupes to itself.
-    lastAutoLogHashRef.current = hashState({
-      barKg: saved.barKg,
-      discs: saved.discs,
-    });
   }, [hydrated]);
 
   // ─── Persistence (debounced) ───────────────────────────────────────────────
@@ -207,50 +191,6 @@ export function CalculatorClient() {
     const id = setTimeout(() => {
       setCalculatorState({ barKg, discs: discs.map(toPersist) });
     }, 250);
-    return () => clearTimeout(id);
-  }, [barKg, discs, hydrated]);
-
-  // ─── Auto-log watcher (debounced, deduplicated) ────────────────────────────
-
-  useEffect(() => {
-    // Wait for hydration to seed the dedupe ref before we start.
-    if (!hydrated || !hasSyncedRef.current) return;
-
-    // Skip the initial empty state — no load configured means nothing to log.
-    if (discs.length === 0 && barKg === DEFAULT_BAR_KG) return;
-
-    // Re-check inside the timeout: a photo analysis may have started
-    // during the debounce window. We don't want the auto-log to fire on
-    // state captured while a Foto request was in flight.
-    if (fotoBusyRef.current) return;
-
-    const currentHash = hashState({ barKg, discs });
-    if (currentHash === lastAutoLogHashRef.current) return;
-
-    const id = setTimeout(() => {
-      // Re-check at fire time. The foto state may have flipped between
-      // scheduling and execution; the hash too. Bail out cleanly.
-      if (fotoBusyRef.current) return;
-      if (discs.length === 0 && barKg === DEFAULT_BAR_KG) return;
-      const finalHash = hashState({ barKg, discs });
-      if (finalHash === lastAutoLogHashRef.current) return;
-
-      const totals = computeTotals({ barKg, discs });
-      const record: SavedWeightRecord = {
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        exercise: null,
-        barKg,
-        discs: discs.map(toPersist),
-        totalKg: totals.totalKg,
-        totalLb: totals.totalLb,
-        breakdownLine: totals.breakdownLine,
-        source: "auto-log",
-      };
-      addRecord(record);
-      lastAutoLogHashRef.current = finalHash;
-    }, AUTO_LOG_DEBOUNCE_MS);
-
     return () => clearTimeout(id);
   }, [barKg, discs, hydrated]);
 
@@ -270,14 +210,6 @@ export function CalculatorClient() {
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [fotoState.kind]);
-
-  // Sync fotoBusyRef so the auto-log watcher can read it from inside its
-  // setTimeout without subscribing to fotoState (which would re-trigger
-  // the debounce on every photo state transition). The ref updates
-  // synchronously when the effect re-runs.
-  useEffect(() => {
-    fotoBusyRef.current = fotoState.kind === "analyzing";
   }, [fotoState.kind]);
 
   useEffect(() => {
@@ -541,12 +473,6 @@ export function CalculatorClient() {
         toast.error("No pudimos registrar el origen de la foto.");
       }
     }
-    // Seed the dedupe ref so the post-accept auto-log doesn't double-log
-    // the same configuration the foto just persisted.
-    lastAutoLogHashRef.current = hashState({
-      barKg: breakdown.barKg,
-      discs: breakdown.discs,
-    });
   }
 
   function cancelFoto() {
