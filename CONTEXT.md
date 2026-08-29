@@ -114,6 +114,38 @@ Generá la sesión con estos parámetros:
 - `pd:classes` y `pd:ideas` se descartan silenciosamente al primer read (migración transparente).
 - Cambiar de navegador = empezar de cero (privacidad por diseño).
 
+### SavedWeightRecord
+- `id: string` — uuid.
+- `createdAt: string` — ISO timestamp.
+- `exercise: string | null` — nombre del ejercicio. **Obligatorio** en registros `manual` y `foto`; **null** en `auto-log`. Trim + collapse whitespace al persistir; capitalización libre (el autocomplete normaliza case-insensitive pero guarda lo que tipeó el coach).
+- `barKg: number` — snapshot en kg.
+- `discs: DiscRow[]` — **snapshot** del desglose al momento de registrar. No es referencia viva al estado actual de la calculadora.
+- `totalKg: number` y `totalLb: number` — totales pre-calculados al persistir.
+- `breakdownLine: string` — pre-formateado vía `formatBreakdownLine` para mostrar en listas.
+- `source: "auto-log" | "manual" | "foto"` — cómo se capturó.
+- Persistido en `pd:calculator-records`. **Auto-log cap 200**: cuando se acumula un nuevo auto-log y ya hay 200, se descarta el más antiguo. Los registros `manual` y `foto` **nunca** se descartan.
+- Dedupe: el watcher de auto-log hashea `{barKg, sortedDiscs}` y no persiste si el hash coincide con el último log (evita N registros cuando el coach tipea y borra en pocos segundos).
+
+## Reglas del Negocio
+
+### Auto-log de la calculadora
+- Watcher con **debounce 1500ms** (más largo que el draft-save de 250ms). Dispara cuando `barKg` o `discs` cambian y se llega a un estado estable.
+- Skip si `discs.length === 0 && barKg === 20` (estado inicial puro, sin carga real).
+- Pausa mientras `fotoState.kind === "analyzing"`. Se reanuda al volver a idle.
+- Cuando el Foto tab se aplica, persiste un registro `source: "foto"` **inmediato** (no espera el debounce).
+
+### Guardar con etiqueta (manual)
+- Botón `Guardar` en el footer sticky de la calculadora (a la izquierda de `Copiar`).
+- Abre un **form inline** (no modal, no drawer) con input `Ejercicio` + datalist de `getUniqueExercises()`.
+- Submit deshabilitado si `exercise.trim() === ""`. Sin carga real (`discs.length === 0 && barKg === 20`), el botón Guardar está disabled.
+- Persiste con `source: "manual"`, `id: crypto.randomUUID()`, `createdAt: new Date().toISOString()`.
+
+### Cargar un registro
+- Acción `Cargar` desde el mini-panel o desde `/tools/weight-calculator/history`.
+- Reemplaza `barKg` y `discs` en el estado de la calculadora con el snapshot del registro.
+- Si el draft actual difiere del registro a cargar, `window.confirm("Reemplazar la carga actual?")` antes de aplicar.
+- Desde la página de historial: `setCalculatorState` antes de navegar, así la calculadora abre ya con la carga correcta.
+
 ### Errores
 - API falla → toast con mensaje genérico, no exponer detalles internos.
 - Response vacío o JSON inválido → reintentar una vez, luego mostrar error.
@@ -144,6 +176,8 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 ## Storage Schema
 
 - `pd:sessions` — `SavedSession[]`
+- `pd:calculator-state` — `CalculatorState` (auto-save del draft actual, debounce 250ms)
+- `pd:calculator-records` — `SavedWeightRecord[]` (historial durable; cap 200 sobre auto-log, sin cap sobre manual/foto)
 - `pd:classes` — eliminado (migración silenciosa)
 - `pd:ideas` — eliminado (migración silenciosa)
 
@@ -177,7 +211,8 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 | `/` | Redirige a `/classes` | Server |
 | `/classes` | Catálogo unificado: secciones `MODALIDADES DEL SISTEMA` y `HERRAMIENTAS` (CrossFit primero, Calculadora de Pesos como primera herramienta) | Server shell + Client list |
 | `/generate/[modalityId]` | Form de sesión + resultado + mini-historial | Client-only |
-| `/tools/weight-calculator` | Calculadora de pesos (Manual + Foto tabs, sticky bottom total) | Client-only |
+| `/tools/weight-calculator` | Calculadora de pesos (Manual + Foto tabs, sticky bottom total, mini-panel de registros etiquetados) | Client-only |
+| `/tools/weight-calculator/history` | Historial completo de cargas: lista, búsqueda, filtros por source, sort | Client-only |
 | `/api/generate` | POST → generación validada | Server |
 
 > Eliminadas: `/classes/new`, `/classes/[id]`, `/classes/[id]/generate`, `ClaseForm`.
@@ -222,6 +257,12 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - **Estado compartido de la calculadora** — único objeto `{ barKg, discs }` que ambos tabs leen y escriben. El Foto tab **no** escribe directamente: propone un desglose en su propio preview y sólo aplica al estado al confirmar el usuario.
 - **Total sticky** — el peso total se muestra en una franja `sticky bottom-0` siempre visible: `TOTAL · {totalKg} KG · {totalLb} LB` en Geist Mono tabular grande, debajo el breakdown en mute (`20kg + (55lb + 2.5kg)×2`). Border-left `1px solid signal` ("regla de tiza") indica que es el resultado activo.
 - **Persistencia de la calculadora** — el estado `{ barKg, discs }` se auto-guarda en `localStorage` key `pd:calculator-state` con debounce en cada cambio. Al cerrar y volver, la calculadora abre con la última carga. Sin `beforeunload` guard (nada se pierde nunca). Sin mini-historial. Botón ghost `Limpiar` arriba a la derecha resetea a defaults (`{ barKg: 20, discs: [] }`) con `window.confirm`.
+- **SavedWeightRecord** — unidad durable de un cálculo de peso persistido en `pd:calculator-records`. Snapshot de `{ barKg, discs, totalKg, totalLb, breakdownLine, exercise, source }`. Se crea por dos caminos: (a) **auto-log** pasivo (debounce 1500ms, `exercise: null`, `source: "auto-log"`), (b) **Guardar con etiqueta** explícito (`exercise` obligatorio, `source: "manual"` o `"foto"`).
+- **Auto-log** — captura pasiva del estado de la calculadora cada vez que llega a un punto estable. Sin ejercicio, sin foto, sin toast. Es la red de seguridad para que el coach no pierda la sesión aunque olvide Guardar.
+- **Guardar con etiqueta** — acción explícita del coach. Abre un form inline con campo `Ejercicio` (obligatorio) y persiste un `SavedWeightRecord` con `source: "manual"`.
+- **Cargar (en historial)** — acción que rehidrata el estado de la calculadora con el snapshot de un registro guardado. Sobrescribe el draft actual; pide `window.confirm` si el draft difiere.
+- **Mini-panel de registros** — sección en `/tools/weight-calculator` debajo del bar visualization. Lista las últimas 5 `SavedWeightRecord` **etiquetadas** (no auto-log). Cada fila tiene `Cargar`. Footer: link a la página completa de historial.
+- **Página de historial** — `/tools/weight-calculator/history`. Vista completa, buscable, filtrable, ordenable de todos los registros (etiquetados + auto-log).
 - **Foto tab UX** — un solo botón "Elegir foto" (`<input type="file" accept="image/*">` sin `capture`, mobile chooser nativo muestra cámara/galería/archivos). Cuatro estados: (a) vacío con copy + botón + privacy disclosure inline, (b) foto cargada con thumbnail + botones `Elegir otra` / `Analizar`, (c) analizando con status strip signal-fill + label `Analizando…` (sin spinner en el botón), (d) preview del desglose. Constraints client-side: max 5MB, JPEG/PNG/WebP, min 200×200px.
 - **Endpoint `/api/calculate-weight`** — endpoint dedicado (no extiende `/api/generate`) que recibe `multipart/form-data` con campo `image: File`. Server valida tamaño/formato, codifica a base64, llama a un modelo vision-capable, devuelve `{ ok, breakdown, model }` o error. Las herramientas no son modalidades; no se reutiliza el registry.
 - **Model split por capability** — `MiniMax-Text-01` se mantiene para CrossFit (no se toca lo que funciona, JSON valid 100%, ~13s avg). Para visión se usa `MiniMax-M3` (único modelo documentado con soporte `image_url` / `video_url`). Cada endpoint instancia su propio `OpenAI` client contra `https://api.minimax.io/v1`. No se migra CrossFit a M3 (riesgo de romper JSON output estable).
@@ -257,3 +298,4 @@ Esta app **no tiene auth ni roles**. Es single-user local (el Entrenador).
 - `docs/adr/0004-ephemeral-active-result.md` — active result efímero + `beforeunload` guard + indicador `SIN GUARDAR`.
 - `docs/adr/0005-responsive-content-sidebar.md` — excepción responsive de dos columnas para el mini-historial en `/generate/[modalityId]`.
 - `docs/adr/0006-robust-json-parsing-strip-and-retry.md` — strip de fences markdown + retry una vez en `generateCrossFitSession`.
+- `docs/adr/0009-saved-weight-records.md` — historial durable de pesos en la calculadora (auto-log + guardar con etiqueta, mini-panel + página completa).

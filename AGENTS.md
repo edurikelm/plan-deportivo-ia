@@ -75,3 +75,30 @@ Si hay duda entre 1 y 2 → escalar hacia arriba.
 ## Artefactos de verificación
 
 Screenshots, traces, snapshots y archivos generados durante verificación **no son parte del producto**. Después de usarlos, eliminarlos del worktree o moverlos a `C:\Users\eduri\AppData\Local\Temp\opencode` (tmp pre-aprobado). Nunca dejarlos en la raíz ni en `src/`.
+
+## Active work
+
+Esta sección existe para que una sesión nueva sepa qué hay en curso sin tener que descubrirlo desde cero. Cuando retomes trabajo, mirá primero `docs/agents/issues/`, leé el umbrella open que esté activo, y seguí el ticket hijo que esté en `ready-for-agent` o `in_progress`.
+
+### En curso al cierre de la última sesión
+
+- **Umbrella activo**: `0012-saved-weight-records` (issue en `docs/agents/issues/0012-saved-weight-records.md`).
+  - ADR de soporte: `docs/adr/0009-saved-weight-records.md`.
+  - Hijos: 5 vertical slices (0013-0017) en `docs/agents/issues/`. El plan original de 7 horizontal layers está archivado en `docs/agents/issues/.archive/`.
+- **Implementado** (código + verifier pass): 0013 (save labeled), 0014 (auto-log), 0015 (mini-panel).
+- **Pendiente**: 0016 (página completa de historial en `/tools/weight-calculator/history`), 0017 (polish + verify end-to-end).
+
+### Patrones establecidos en el código (consultar antes de introducir variantes)
+
+- **Storage namespace**: keys `pd:*` — `pd:sessions`, `pd:calculator-state`, `pd:calculator-records`. Helpers en `src/lib/storage.ts` con el patrón `dispatchStorage` para que los `storage` events sintéticos refresquen same-tab consumers.
+- **Storage reactivo en componentes**: `useSyncExternalStore` con la string cruda como snapshot. **No** `useState` + `useEffect` con `setRecords(...)` adentro — falla la regla de React 19 `react-hooks/set-state-in-effect`. El snapshot es la string JSON, el consumer lo parsea con `parseRecordsFromRaw` / `getRecentRecordsFromRaw` (los helpers que aceptan raw existen precisamente para que el `useMemo` con dep `[raw]` sea genuino).
+- **Helpers puros de dominio**: `src/lib/calculator/history.ts` con `computeTotals`, `hashState`, `normalizeExerciseName`, `dedupeExercises`. Importar desde `@/lib/calculator` (el barrel) — no reimplementar localmente.
+- **IDs**: `crypto.randomUUID()` (no `Date.now() + Math.random()`).
+
+### Cómo retomar 0016
+
+1. Leé `0012-saved-weight-records.md` (umbrella spec).
+2. Leé `0016-history-page.md` (ticket a implementar).
+3. Leé `0009-saved-weight-records.md` (decisión arquitectónica).
+4. Leé `src/app/tools/weight-calculator/_components/calculator-client.tsx` y `saved-records-panel.tsx` para ver los patrones que se deben mantener.
+5. Implementá siguiendo la forma vertical-slice (no layer-by-layer). Aceptación: 14 criterios en el issue, todos verificables.

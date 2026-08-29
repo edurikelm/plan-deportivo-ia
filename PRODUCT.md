@@ -43,7 +43,8 @@ Adding a new modality (Bodybuild, Gymnastics, Olympic Lifting) is a code change 
 - `Modality { id, label, description, accent, iconKey }` — definido en `src/lib/modalities/modalities.ts`. Compartido entre server y client.
 - La definición de modalidad (context, schemas, converter, generator, renderComponent) está dispersa en tres archivos: `crossfit-schemas.ts` (server), `crossfit.tsx` (client), `modalities.ts` (shared). No existe un objeto literal `ModalityDefinition`.
 - `SavedSession { id, modalityId, createdAt, model, title, markdown, structured, input }`
-- Persisted as `pd:sessions` in `localStorage`. `pd:classes` and `pd:ideas` are silently discarded on first read.
+- `SavedWeightRecord { id, createdAt, exercise, barKg, discs, totalKg, totalLb, breakdownLine, source }` — snapshot durable de un cálculo de peso. Persistido en `pd:calculator-records` (issue 0012, ADR-0009). Se captura por dos caminos: auto-log pasivo (debounce 1500ms, `exercise: null`) y Guardar explícito con etiqueta de ejercicio obligatoria.
+- Persisted as `pd:sessions` in `localStorage`. `pd:classes` and `pd:ideas` are silently discarded on first read. `pd:calculator-records` is a new key; absence = empty array, no migration needed.
 
 ### Prompt construction
 
@@ -64,6 +65,8 @@ Adding a new modality (Bodybuild, Gymnastics, Olympic Lifting) is a code change 
 | `/` | Redirects to `/classes` |
 | `/classes` | System modality catalog (CrossFit first) |
 | `/generate/[modalityId]` | Session form + 4-phase result + mini-history (last 5 sessions) |
+| `/tools/weight-calculator` | Calculadora de Pesos (Manual + Foto tabs, sticky total, mini-panel de registros etiquetados) |
+| `/tools/weight-calculator/history` | Historial completo de cargas: búsqueda, filtros por source, sort, acciones por fila (issue 0012) |
 | `/api/generate` | POST → validated generation |
 
 ### Session actions on the result card
@@ -81,6 +84,7 @@ Copy (clipboard) · Export `.md` (`{modalityId}-{YYYY-MM-DD}.md`) · Regenerate 
 - Future modalities follow the same registry pattern: context + inputSchema + outputSchema + converter + render component.
 - **Aleatorio** WOD format is offered as a selectable option to the Entrenador. The system resolves it internally to a concrete format before calling the LLM. The output `sections.wod.format` will always be a concrete value, never "Aleatorio".
 - No video URL in this scope.
+- Calculadora de Pesos puede registrar cálculos de peso con etiqueta de ejercicio (auto-log pasivo + Guardar explícito) y mantener un historial durable. El mini-panel y la página completa de historial son las dos superficies. No convierte la calculadora en una modalidad (sigue siendo utility manual, ADR-0007 + ADR-0009).
 
 ### Open / deliberately undecided
 
@@ -90,6 +94,7 @@ Copy (clipboard) · Export `.md` (`{modalityId}-{YYYY-MM-DD}.md`) · Regenerate 
 - Live browser overlay (`.impeccable/live`) — not configured.
 - Streaming of LLM response.
 - Specific modalities beyond CrossFit (Bodybuild, Gymnastics, Olympic Lifting, etc.) — only the registry architecture is prepared.
+- Registry de movimientos tipado para la calculadora. Hoy el campo `exercise` es string libre; el autocomplete ayuda a la consistencia.
 
 ## Brand Commitments
 
@@ -117,6 +122,8 @@ Copy (clipboard) · Export `.md` (`{modalityId}-{YYYY-MM-DD}.md`) · Regenerate 
 
 - `CONTEXT.md` — modality registry, SavedSession model, storage schema, route tree.
 - `docs/adr/0003-system-modalities.md` — modality replacement of Clase, no `response_format` decision.
+- `docs/adr/0009-saved-weight-records.md` — saved weight records (auto-log + Guardar con etiqueta, mini-panel + página de historial).
+- `docs/agents/issues/0012-saved-weight-records.md` — phased implementation plan for the calculator history.
 - `src/lib/modalities/` — code registry with crossfit as reference implementation.
 - `src/app/**/*.tsx` + `src/app/api/generate/route.ts` — working surfaces.
 
