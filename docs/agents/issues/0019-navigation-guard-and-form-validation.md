@@ -1,6 +1,7 @@
 ---
 label: bug
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: 0018-ui-ux-polish
 depends_on: []
 blocks:
@@ -92,3 +93,14 @@ None — can start immediately.
 7. **Visual `(opcional)` distinto del placeholder.**
    - En `/generate/crossfit`, mirá los labels de `Foco de movimiento` y `Consideraciones del entrenador`.
    - Expect: el sufijo "(opcional)" es visiblemente más claro que el texto placeholder debajo de cada input.
+
+## Post-mortem
+
+Manual end-to-end test passed en 2026-08-29. Los 7 pasos de la script se ejecutaron sin desvíos: back guard con `window.confirm` en los 4 estados de trabajo pendiente, on-blur validation con `touched` propagando correctamente, errores que persisten hasta corrección tras submit fallido, distinción visual entre `(opcional)` y placeholders. El `beforeunload` guard existente sigue intacto (paso 9 no fue necesario porque el 1-4 ya cubre el threshold).
+
+`npm run build` y `npm run lint` pasan limpios. La nueva utility `text-mute-strong` se genera correctamente en el CSS servido por el dev server (validado leyendo el output de `/_next/static/chunks/...css`).
+
+**Implementación final:**
+- 3 archivos tocados: `generate-client.tsx` (+151/-12), `globals.css` (+5/-0), ticket file nuevo.
+- Commit: `d45ba5a fix(0019): navigation guard + on-blur form validation` en branch `0018-ui-ux-polish`.
+- Sin cambios al modelo de datos, sin nuevas keys de storage, sin nuevas rutas.
