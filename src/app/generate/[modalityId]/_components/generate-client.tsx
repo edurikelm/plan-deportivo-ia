@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Copy, Download, Pencil, RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +33,11 @@ interface FormErrors {
   wodFormat?: string;
 }
 
+type TouchedFields = {
+  strengthSkill: boolean;
+  wodFormat: boolean;
+};
+
 type WodFormat = "AMRAP" | "EMOM" | "For Time" | "Tabata" | "Intervalos" | "Aleatorio";
 
 const WOD_FORMAT_OPTIONS: WodFormat[] = [
@@ -46,6 +52,7 @@ const WOD_FORMAT_OPTIONS: WodFormat[] = [
 export function GenerateClient({ modalityId }: GenerateClientProps) {
   const hydrated = useHydrated();
   const modality = getModality(modalityId) ?? null;
+  const router = useRouter();
 
   // Form state
   const [durationMinutes, setDurationMinutes] = useState("60");
@@ -54,6 +61,10 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const [focusMovement, setFocusMovement] = useState("");
   const [considerations, setConsiderations] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<TouchedFields>({
+    strengthSkill: false,
+    wodFormat: false,
+  });
 
   const DURATION_OPTIONS = ["45", "60", "75", "90"] as const;
 
@@ -79,6 +90,23 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const refreshRecentSessions = useCallback(() => {
     setRecentSessions(getRecentSessions(5));
   }, []);
+
+  // Back navigation guard — same threshold as beforeunload, but for in-app nav.
+  // Middle-click and right-click semantics are intentionally dropped: the back
+  // button is a one-click action with confirmation, not a target for new-tab.
+  function handleBack() {
+    if (hasUnpersistedWork) {
+      const ok = window.confirm("Tenés cambios sin guardar. ¿Salir?");
+      if (!ok) return;
+    }
+    router.push("/classes");
+  }
+
+  // On-blur handler for form fields. Marks the field as touched so the
+  // error message becomes visible (matches the on-blur validation contract).
+  function handleBlur(field: keyof TouchedFields) {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  }
 
   // Accessibility
   const [announcement, setAnnouncement] = useState("");
@@ -153,7 +181,9 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     return true;
   }
 
-  // Side-effecting variant — mutates `errors` state. Use only inside event handlers.
+  // Side-effecting variant — mutates `errors` state and marks all fields as
+  // touched so the on-blur validation contract surfaces them all at once.
+  // Use only inside event handlers.
   function validateAndSetErrors(): boolean {
     const newErrors: FormErrors = {};
     if (!strengthSkill.trim()) {
@@ -163,6 +193,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       newErrors.wodFormat = "El formato WOD es obligatorio";
     }
     setErrors(newErrors);
+    setTouched({ strengthSkill: true, wodFormat: true });
     return Object.keys(newErrors).length === 0;
   }
 
@@ -462,8 +493,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           <Button
             variant="ghost"
             size="icon"
-            nativeButton={false}
-            render={<Link href="/classes" />}
+            onClick={handleBack}
             aria-label="Volver al catálogo"
             className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
           >
@@ -603,12 +633,17 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               placeholder="p. ej. Back Squat 5x5 @ 70% 1RM — técnica de sentadilla"
               value={strengthSkill}
               onChange={(e) => setStrengthSkill(e.target.value)}
+              onBlur={() => handleBlur("strengthSkill")}
               disabled={busy}
-              aria-invalid={Boolean(errors.strengthSkill)}
-              aria-describedby={errors.strengthSkill ? "strengthSkill-error" : undefined}
+              aria-invalid={Boolean(touched.strengthSkill && errors.strengthSkill)}
+              aria-describedby={
+                touched.strengthSkill && errors.strengthSkill
+                  ? "strengthSkill-error"
+                  : undefined
+              }
               className="min-h-24 px-3.5 py-3 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            {errors.strengthSkill && (
+            {touched.strengthSkill && errors.strengthSkill && (
               <p
                 id="strengthSkill-error"
                 className="font-sans text-[0.8125rem] text-destructive"
@@ -632,14 +667,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </label>
             <Select
               value={wodFormat}
-              onValueChange={(v) => setWodFormat(v as WodFormat)}
+              onValueChange={(v) => {
+                setWodFormat(v as WodFormat);
+                // mark as touched on actual interaction; default "AMRAP" is
+                // pre-selected, so no onBlur path is needed here.
+                if (!touched.wodFormat) {
+                  setTouched((prev) => ({ ...prev, wodFormat: true }));
+                }
+              }}
               disabled={busy}
               aria-labelledby="wodFormat-label"
-              aria-describedby={errors.wodFormat ? "wodFormat-error" : undefined}
+              aria-describedby={
+                touched.wodFormat && errors.wodFormat
+                  ? "wodFormat-error"
+                  : undefined
+              }
             >
               <SelectTrigger
                 id="wodFormat"
-                aria-invalid={Boolean(errors.wodFormat)}
+                aria-invalid={Boolean(touched.wodFormat && errors.wodFormat)}
                 className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
               >
                 <SelectValue placeholder="Seleccionar formato…" />
@@ -652,7 +698,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                 ))}
               </SelectContent>
             </Select>
-            {errors.wodFormat && (
+            {touched.wodFormat && errors.wodFormat && (
               <p
                 id="wodFormat-error"
                 className="font-sans text-[0.8125rem] text-destructive"
@@ -669,7 +715,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
             >
               Foco de movimiento{" "}
-              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute">
+              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute-strong">
                 (opcional)
               </span>
             </label>
@@ -690,7 +736,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
             >
               Consideraciones del entrenador{" "}
-              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute">
+              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute-strong">
                 (opcional)
               </span>
             </label>

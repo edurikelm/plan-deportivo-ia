@@ -59,6 +59,10 @@
   --color-hairline-strong: oklch(1 0 0 / 18%);
   --color-signal-deep: oklch(0.78 0.16 130);
   --color-mute: var(--muted-foreground);
+  /* Mute-strong: brighter than mute, reserved for inline label suffixes
+     (e.g. "(opcional)") that should read as part of the label, not as
+     metadata or placeholder. Distinct from placeholder text. */
+  --color-mute-strong: oklch(0.78 0.005 80);
 
   /* Type */
   --font-sans: var(--font-inter);
