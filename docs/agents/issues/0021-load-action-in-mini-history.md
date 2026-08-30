@@ -1,6 +1,7 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: 0018-ui-ux-polish
 depends_on:
   - "0020"
@@ -90,3 +91,20 @@ Sin cambios de schema, sin nuevas keys de storage, sin nuevas rutas. La única k
 7. **Editar tras load.**
    - Click `Editar` en el footer de la card.
    - Expect: el editor muestra el `markdown` de la sesión A cargada. Editar + `Guardar` persiste los cambios.
+
+## Post-mortem
+
+Manual end-to-end test descubrió un bug ortogonal al scope del ticket: el mini-historial aparecía vacío después de un hard refresh en `/generate/[modalityId]`, aunque había sesiones en `localStorage`. Navegando a `/classes` y volviendo, aparecían correctamente.
+
+**Causa raíz:** `useState(() => hydrated ? getRecentSessions(5) : [])` corría el initializer en SSR (donde `useHydrated` retorna `false`), retornando `[]`. Después de la hidratación en cliente, el initializer no se volvía a correr y el estado quedaba en `[]` permanentemente. En la nav client-side, el initializer corría en cliente con `useHydrated` ya en `true`, por eso funcionaba en ese path.
+
+**Fix (commit `126fdde`):** reemplacé el `useState` por `useSyncExternalStore` + `useMemo`, siguiendo el patrón storage-reactivo documentado en `AGENTS.md:91-92`. Agregué 4 helpers a `storage.ts`: `getSessionsRaw`, `parseSessionsFromRaw`, `getRecentSessionsFromRaw`, `subscribeToSessions`. El subscriber captura tanto same-tab (vía `dispatchStorage` synthetic events) como cross-tab (vía native `storage` events) cambios.
+
+**El Cargar flow en sí** (load + form hydration + persist with same id) verificó sin issues. El bug era de carga inicial, no de la acción.
+
+`npm run lint` y `npm run build` pasan limpios. Re-verificación post-fix: F5 muestra el mini-historial correctamente, cross-tab sync funciona, save → mini-historial reactivo sin delay.
+
+**Implementación final:**
+- 3 commits en branch `0018-ui-ux-polish`: `b820638` (impl) + `126fdde` (fix) + este close.
+- Archivos tocados: `generate-client.tsx` (Cargar + storage reactivo), `storage.ts` (+4 helpers), ticket file.
+- Sin cambios al modelo de datos, sin nuevas keys de storage, sin nuevas rutas.
