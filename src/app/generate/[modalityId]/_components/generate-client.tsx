@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Copy, Download, Pencil, RefreshCw, Save } from "lucide-react";
+import { ArrowLeft, Copy, Download, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +22,7 @@ import {
   type CrossFitPlan,
 } from "@/lib/modalities/crossfit";
 import { getModality } from "@/lib/modalities/modalities";
+import { copyToClipboard, downloadAsMarkdown, markdownFilename } from "@/lib/clipboard";
 import type { SavedSession } from "@/lib/types";
 
 interface GenerateClientProps {
@@ -281,28 +282,22 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     }
   }
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!result) return;
     const text = editedMarkdown ?? result.markdown;
-    navigator.clipboard.writeText(text).then(
-      () => toast.success("Copiado al portapapeles"),
-      () => toast.error("No se pudo copiar"),
-    );
+    const outcome = await copyToClipboard(text);
+    if (outcome.ok) {
+      toast.success("Copiado al portapapeles");
+    } else {
+      toast.error("No se pudo copiar");
+    }
   }
 
   function handleExport() {
     if (!result) return;
     const text = editedMarkdown ?? result.markdown;
-    const slug = modality?.label.toLowerCase().replace(/\s+/g, "-") ?? "session";
-    const date = new Date().toLocaleDateString("en-CA");
-    const filename = `${slug}-${date}.md`;
-    const blob = new Blob([text], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = markdownFilename(modality?.label ?? "session");
+    downloadAsMarkdown(filename, text);
   }
 
   function handleSave() {
@@ -839,16 +834,6 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     </Button>
                     <Button
                       variant="ghost"
-                      onClick={handleRegenerate}
-                      disabled={busy || !validate()}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-3.5" />
-                      Regenerar
-                    </Button>
-                    <Button
-                      variant="ghost"
                       onClick={() => {
                         setEditedMarkdown(result.markdown);
                         setMode("edit");
@@ -921,16 +906,6 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     <div className="flex-1" />
                     <Button
                       variant="ghost"
-                      onClick={handleRegenerate}
-                      disabled={busy || !validate()}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-3.5" />
-                      Regenerar
-                    </Button>
-                    <Button
-                      variant="ghost"
                       onClick={handleCopy}
                       disabled={busy}
                       className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
@@ -992,11 +967,13 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       </header>
                       <footer className="mt-2 flex items-center gap-3">
                         <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(s.markdown).then(
-                              () => toast.success("Copiado al portapapeles"),
-                              () => toast.error("No se pudo copiar"),
-                            );
+                          onClick={async () => {
+                            const outcome = await copyToClipboard(s.markdown);
+                            if (outcome.ok) {
+                              toast.success("Copiado al portapapeles");
+                            } else {
+                              toast.error("No se pudo copiar");
+                            }
                           }}
                           className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Copiar sesión: ${s.title}`}
@@ -1006,18 +983,11 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         </button>
                         <button
                           onClick={() => {
-                            const slug = modality.label.toLowerCase().replace(/\s+/g, "-");
-                            const date = new Date(s.createdAt).toLocaleDateString("en-CA");
-                            const filename = `${slug}-${date}.md`;
-                            const blob = new Blob([s.markdown], {
-                              type: "text/markdown",
-                            });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = filename;
-                            a.click();
-                            URL.revokeObjectURL(url);
+                            const filename = markdownFilename(
+                              modality.label,
+                              new Date(s.createdAt),
+                            );
+                            downloadAsMarkdown(filename, s.markdown);
                           }}
                           className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Exportar sesión: ${s.title}`}
