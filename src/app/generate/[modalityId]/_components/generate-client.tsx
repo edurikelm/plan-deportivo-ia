@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save } from "lucide-react";
+import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +16,8 @@ import {
   getRecentSessionsFromRaw,
   getSessions,
   getSessionsRaw,
+  removeSession,
+  setSessions,
   subscribeToSessions,
   updateSession,
 } from "@/lib/storage";
@@ -376,6 +378,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     setFocusMovement(loaded.input.focusMovement ?? "");
     setConsiderations(loaded.input.considerations ?? "");
     toast.success("Sesión cargada - listo para regenerar o editar");
+  }
+
+  // Delete a session from the mini-history. Mirrors the same pattern as
+  // /sessions/page.tsx: snapshot the full sessions list BEFORE removing
+  // so the undo restore is position-preserving (the session returns to
+  // the same index, not appended at the end).
+  function handleDeleteFromHistory(session: SavedSession) {
+    const ok = window.confirm("¿Eliminar esta sesión?");
+    if (!ok) return;
+    const original = [...getSessions()];
+    removeSession(session.id);
+    toast("Sesión eliminada", {
+      description: session.title,
+      action: {
+        label: "Deshacer",
+        onClick: () => setSessions(original),
+      },
+      duration: 5000,
+    });
   }
 
   async function handleRegenerate() {
@@ -1056,6 +1077,14 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         >
                           <Download className="size-3" />
                           Exportar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFromHistory(s)}
+                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Eliminar sesión: ${s.title}`}
+                        >
+                          <Trash2 className="size-3" />
+                          Eliminar
                         </button>
                       </footer>
                     </article>
