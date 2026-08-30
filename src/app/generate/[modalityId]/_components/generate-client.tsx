@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import {
   addSession,
   getRecentSessionsFromRaw,
+  getSessions,
   getSessionsRaw,
   subscribeToSessions,
   updateSession,
@@ -57,6 +58,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const hydrated = useHydrated();
   const modality = getModality(modalityId) ?? null;
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Form state
   const [durationMinutes, setDurationMinutes] = useState("60");
@@ -176,6 +178,23 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       abortRef.current = null;
     };
   }, []);
+
+  // Handle ?fromSession={id} query param from the /sessions page's Cargar
+  // action. Runs once after hydration; if the param is present and points
+  // to a valid session, rehydrate the active result and form from it.
+  // Empty deps + the hydrated gate ensure this fires exactly once per mount.
+  const fromSession = searchParams.get("fromSession");
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!fromSession) return;
+    const target = getSessions().find((s) => s.id === fromSession);
+    if (!target) return;
+    handleLoadFromHistory(target);
+    // Intentionally only react to the initial mount. We do NOT include
+    // `fromSession` or `handleLoadFromHistory` in deps to avoid a second
+    // load if the user later mutates the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // beforeunload guard — warn when there is unpersisted work
   useEffect(() => {
