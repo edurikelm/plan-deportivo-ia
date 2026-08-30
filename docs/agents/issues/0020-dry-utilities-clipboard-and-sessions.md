@@ -1,6 +1,7 @@
 ---
 label: chore
-status: open
+status: closed
+closed_at: 2026-08-29
 parent: 0018-ui-ux-polish
 depends_on: []
 blocks:
@@ -90,3 +91,16 @@ None — can start immediately.
 
 6. **Visual continuity.**
    - No debe haber regresiones de estilo: todos los botones ghost mantienen `font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5`.
+
+## Post-mortem
+
+Manual end-to-end test pasó en 2026-08-29. Los 6 pasos se ejecutaron sin desvíos: copy y export desde el resultado activo y desde el mini-historial funcionan con toasts idénticos, el botón `Regenerar` solo aparece en el status strip (no en el card footer, ni en view ni en edit mode), y no hay regresiones de estilo en los botones ghost.
+
+`npm run lint` y `npm run build` pasan limpios.
+
+**Implementación final:**
+- 4 archivos tocados: 2 nuevos (`clipboard.ts`, `sessions.ts`), 1 modificado (`generate-client.tsx`), 1 ticket file.
+- Commits: `f6876d4 chore(0020): DRY utilities - clipboard + sessions helpers` en branch `0018-ui-ux-polish`.
+- El helper `loadSessionInto` queda listo para ser usado por 0021 (Cargar action).
+- Decisión arquitectónica: el botón `Regenerar` ahora vive solo en el status strip. La card mantiene solo acciones de resultado (`Guardar`, `Copiar`, `Exportar`, `Editar`).
+- Sin cambios al modelo de datos, sin nuevas keys de storage, sin nuevas rutas.
