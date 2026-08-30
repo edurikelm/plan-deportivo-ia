@@ -98,6 +98,89 @@ export function getRecentSessions(limit = 5): SavedSession[] {
     .slice(0, limit);
 }
 
+/**
+ * Returns the raw JSON string stored under `pd:sessions`, or `""` if the
+ * key is missing or the read fails. Exposed for `useSyncExternalStore`
+ * consumers that want the raw string as their snapshot (see AGENTS.md
+ * storage-reactivo pattern).
+ */
+export function getSessionsRaw(): string {
+  try {
+    migrateIfNeeded();
+    return localStorage.getItem(SESSIONS_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Parses a raw JSON string into a list of saved sessions. Defensive on the
+ * read path: corrupt or non-array data returns `[]`. Mirrors
+ * `parseRecordsFromRaw` for the calculator-records side.
+ *
+ * No Zod validation here (SavedSession does not have a Zod schema defined
+ * yet — the `structured` field is loose `CrossFitPlan | null` and the
+ * consumer pages already tolerate a missing or partial `structured`).
+ * If the JSON shape ever needs to harden, add a `SavedSessionSchema`
+ * and validate per entry.
+ */
+export function parseSessionsFromRaw(raw: string): SavedSession[] {
+  try {
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.warn(
+        "[pd:sessions] expected array, discarding:",
+        typeof parsed,
+      );
+      return [];
+    }
+    return parsed as SavedSession[];
+  } catch (err) {
+    console.warn("[pd:sessions] failed to parse:", err);
+    return [];
+  }
+}
+
+/**
+ * Returns the most recent sessions parsed from a raw JSON string, newest
+ * first. Auto-logged entries are not relevant for sessions (sessions are
+ * always explicitly created) so no source filter applies.
+ *
+ * Accepts the raw string (instead of reading localStorage) so callers
+ * using `useSyncExternalStore` can memoize on the raw value cleanly
+ * without round-tripping through `localStorage.getItem`.
+ */
+export function getRecentSessionsFromRaw(
+  raw: string,
+  limit = 5,
+): SavedSession[] {
+  return parseSessionsFromRaw(raw)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, limit);
+}
+
+/**
+ * Subscribe to changes in `pd:sessions`. Triggers on both same-tab writes
+ * (via the synthetic `storage` event dispatched by `dispatchStorage`) and
+ * cross-tab writes (via the native `storage` event).
+ *
+ * Use with `useSyncExternalStore` so the consumer re-reads the raw
+ * snapshot on every change, including after `addSession` / `updateSession`
+ * / `removeSession` from the same tab.
+ */
+export function subscribeToSessions(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (e: StorageEvent) => {
+    if (e.key === SESSIONS_KEY) callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
 // ─── Calculator state ────────────────────────────────────────────────────────
 
 const CALCULATOR_KEY = "pd:calculator-state";

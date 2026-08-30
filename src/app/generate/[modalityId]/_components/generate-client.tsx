@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   addSession,
-  getRecentSessions,
+  getRecentSessionsFromRaw,
+  getSessionsRaw,
+  subscribeToSessions,
   updateSession,
 } from "@/lib/storage";
 import {
@@ -84,14 +86,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [editedMarkdown, setEditedMarkdown] = useState<string | null>(null);
 
-  // Mini-history — loaded lazily on mount, refreshed after save
-  const [recentSessions, setRecentSessions] = useState<SavedSession[]>(() =>
-    hydrated ? getRecentSessions(5) : [],
+  // Mini-history — reactive snapshot of `pd:sessions`. The raw string is
+  // the snapshot; the parsed list is memoized off it. `dispatchStorage`
+  // fires a synthetic `storage` event on every same-tab write, so this
+  // memo re-runs automatically after `addSession` / `updateSession` /
+  // `removeSession` without an explicit refresh hook.
+  //
+  // The previous `useState(() => hydrated ? getRecentSessions(5) : [])`
+  // had a hydration race: on a hard refresh the initializer ran in SSR
+  // with `hydrated = false` and never re-ran after hydration, leaving the
+  // mini-history empty until the user navigated away and back.
+  const sessionsRaw = useSyncExternalStore(
+    subscribeToSessions,
+    getSessionsRaw,
+    () => "",
   );
-
-  const refreshRecentSessions = useCallback(() => {
-    setRecentSessions(getRecentSessions(5));
-  }, []);
+  const recentSessions = useMemo(
+    () => getRecentSessionsFromRaw(sessionsRaw, 5),
+    [sessionsRaw],
+  );
 
   // Back navigation guard — same threshold as beforeunload, but for in-app nav.
   // Middle-click and right-click semantics are intentionally dropped: the back
@@ -317,7 +330,9 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     } else {
       addSession(updated);
       setPersisted(true);
-      refreshRecentSessions();
+      // Mini-history re-renders automatically via the useSyncExternalStore
+      // subscription — `addSession` dispatches a synthetic storage event
+      // that the subscriber catches. No explicit refresh call needed.
     }
     setResult(updated);
     setEditedMarkdown(null);
