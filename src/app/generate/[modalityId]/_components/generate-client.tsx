@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Copy, Download, Pencil, Save } from "lucide-react";
+import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -23,6 +23,7 @@ import {
 } from "@/lib/modalities/crossfit";
 import { getModality } from "@/lib/modalities/modalities";
 import { copyToClipboard, downloadAsMarkdown, markdownFilename } from "@/lib/clipboard";
+import { loadSessionInto } from "@/lib/sessions";
 import type { SavedSession } from "@/lib/types";
 
 interface GenerateClientProps {
@@ -322,6 +323,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     setEditedMarkdown(null);
     setMode("view");
     toast.success("Sesión guardada");
+  }
+
+  // Load a previously-saved session back into the active result for
+  // editing or regeneration. The form is hydrated with the session's
+  // original `input` so a follow-up Regenerar uses the same brief.
+  // `persisted: true` because the session already lives in storage; a
+  // subsequent Guardar will updateSession (idempotent on `id`).
+  function handleLoadFromHistory(session: SavedSession) {
+    const loaded = loadSessionInto(session);
+    setResult(loaded);
+    setEditedMarkdown(null);
+    setMode("view");
+    setPersisted(true);
+    setDurationMinutes(loaded.input.durationMinutes);
+    setStrengthSkill(loaded.input.strengthSkill);
+    setWodFormat(loaded.input.wodFormat);
+    setFocusMovement(loaded.input.focusMovement ?? "");
+    setConsiderations(loaded.input.considerations ?? "");
+    toast.success("Sesión cargada - listo para regenerar o editar");
   }
 
   async function handleRegenerate() {
@@ -966,6 +986,14 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         </span>
                       </header>
                       <footer className="mt-2 flex items-center gap-3">
+                        <button
+                          onClick={() => handleLoadFromHistory(s)}
+                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Cargar sesión: ${s.title}`}
+                        >
+                          <FolderOpen className="size-3" />
+                          Cargar
+                        </button>
                         <button
                           onClick={async () => {
                             const outcome = await copyToClipboard(s.markdown);
