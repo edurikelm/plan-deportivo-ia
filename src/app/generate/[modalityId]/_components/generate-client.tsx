@@ -1040,7 +1040,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                           {s.input.durationMinutes} min
                         </span>
                       </header>
-                      <footer className="mt-2 flex items-center gap-3">
+                      <footer className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <button
                           onClick={() => handleLoadFromHistory(s)}
                           className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
