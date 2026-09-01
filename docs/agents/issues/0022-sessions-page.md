@@ -1,6 +1,7 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-09-01
 parent: 0018-ui-ux-polish
 depends_on:
   - "0020"
@@ -154,3 +155,34 @@ Patrón storage: `useSyncExternalStore` con raw JSON snapshot. Read/write vía `
 12. **Mobile responsive.**
     - DevTools → Toggle device toolbar → iPhone 12 viewport.
     - Expect: la lista es legible, los tap targets son ≥ 44x44px, no hay overflow horizontal.
+
+## Post-mortem
+
+Closed 2026-09-01. Implementación de la sesión previa (commit `ac95aba` en `0018-ui-ux-polish`); esta sesión hizo housekeeping + fix a11y + close-out.
+
+**Cobertura de los 17 criterios de aceptación:** todos cumplidos. Server shell + client component siguiendo el precedent de `/tools/weight-calculator/history` (0016). `useSyncExternalStore` sobre `getSessionsRaw` con `subscribeToSessions`, parseo vía `parseSessionsFromRaw` (helper de 0020). Search case-insensitive sobre `title` + `markdown` con `String.prototype.includes`. Modality filter: chip group con "Todas" + una chip por `modalityId` presente (single-select). Sort selector con 4 opciones (Más recientes default). 4 acciones por fila: `Cargar` (router.push a `/generate/{modalityId}?fromSession={id}`, el `GenerateClient` lee el query param en mount vía `useSearchParams` y aplica `loadSessionInto`), `Copiar` (`copyToClipboard` de 0020), `Exportar` (`downloadAsMarkdown` + `markdownFilename` de 0020), `Eliminar` (`window.confirm` + `removeSession` + toast 5s con `Deshacer` que restaura via `setSessions(original)`). Empty state full (chalk-card con link a `/classes`) + empty state inline (mensaje mute cuando search/filter da 0). Cross-tab sync vía `dispatchStorage` (default). Mobile responsive: stack vertical, `max-w-5xl px-5 md:px-8 py-10`.
+
+**Desviaciones del spec, defendidas:**
+
+1. *No toast intermedio "Sesión cargada — redirigiendo…" en `Cargar`.* El spec lo pide pero el `GenerateClient` ya muestra "Sesión cargada - listo para regenerar o editar" cuando aterriza con `?fromSession`. Un toast intermedio en `/sessions` sería ruido de 200ms. Decisión: skip; si el usuario lo pide, fácil de agregar.
+2. *Modality filter: la chip muestra `modalityId` literal* (`"crossfit"`) en vez del label localizado (`"CrossFit"`). Hoy solo hay una modalidad, así que el impacto visual es nulo. Si en el futuro se agrega Powerlifting con `id: "powerlifting"`, conviene introducir `getModality(id).label` en `FilterChip`. Trivial de hacer cuando aparezca la segunda modalidad — flagged en el primer post-mortem de la umbrella, no antes.
+
+**Fix a11y hecho en esta sesión (2026-09-01):**
+
+Los `ListAction` del row no tenían altura explícita; con `text-[0.6875rem]` el área clickeable era ~24px en mobile, debajo del mínimo 44x44px. Agregado `min-h-11 sm:min-h-7` + `px-2 sm:px-1 -mx-1` + `rounded-sm` + `hover:bg-muted` para que el target sea 44x44 en mobile, 28x32 en desktop, con el mismo look que las acciones de la calculadora. El mini-historial de `/generate/[modalityId]` arrastra el mismo defecto; queda como item de backlog (no parte de 0022).
+
+**Implementación final:**
+
+- 2 archivos nuevos: `src/app/sessions/page.tsx` (10 líneas, server shell con metadata) y `src/app/sessions/_components/sessions-client.tsx` (457 líneas, el client component).
+- 1 archivo modificado: `src/app/generate/[modalityId]/_components/generate-client.tsx` (+21/-0 — wiring del `?fromSession`).
+- 1 archivo tocado en esta sesión: `sessions-client.tsx` (fix a11y, +1/-1 en `ListAction`).
+- Commits: `ac95aba feat(0022): /sessions page` en `0018-ui-ux-polish`. Sin pushear.
+- Build: ✓ clean (10/10 páginas estáticas, `/sessions` prerenderiza).
+- Lint: ✓ clean (1 warning preexistente en `scripts/verify-vision.ts`, no relacionado con este ticket).
+
+**Out of scope (no hecho en este ticket):**
+
+- A11y tap targets del mini-historial en `generate-client.tsx` (mismo defecto, mismo fix, mismo precedent).
+- Visualización del label de modalidad en el filter chip (cuando haya 2+ modalidades).
+- Settings page link desde el footer de `/classes` (eso es 0025).
+- RecentActivityBanner de 0023 que linkea a `/sessions` con counter "N sesiones guardadas" — depende de 0023, no de 0022.

@@ -407,7 +407,7 @@ function ListAction({
     <button
       onClick={onClick}
       aria-label={ariaLabel}
-      className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+      className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone hover:bg-muted transition-colors flex items-center gap-1 min-h-11 sm:min-h-7 px-2 sm:px-1 -mx-1 rounded-sm"
     >
       {icon}
       {label}
