@@ -10,7 +10,7 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 
 | Bump | Cuándo | Ejemplos |
 |---|---|---|
-| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1 |
+| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1, 0.2.2 |
 | **MINOR** (`0.x.0`) | **Umbrella con feature visible al usuario** (nueva página, nuevo flujo, cambio de UX) | umbrella 0018 (UI/UX polish) → 0.2.0 |
 | **MAJOR** (`x.0.0`) | Breaking o rediseño grande | cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0 |
 
@@ -18,6 +18,32 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 > Se ajusta porque las umbrellas de infra (tests, tooling) no entregan features visibles al usuario
 > y bumpear minor por ellas engaña al consumidor del versionado. Las umbrellas de infra van como
 > PATCH acumulado; las umbrellas con feature visible van como MINOR.
+
+## [0.2.2] - 2026-09-02
+
+Umbrella **0026 — Test infrastructure**, milestone **M4** cerrado. 41 tests nuevos (parsers de `storage.ts` + roundtrip de backup), total acumulado **90 tests pasando**.
+
+### Added
+
+- **41 tests de `storage.ts`** (`0030`):
+  - `parseSessionsFromRaw` (8 tests): string vacío, JSON válido, JSON inválido, shape no-array (object/number/null), array vacío.
+  - `parseRecordsFromRaw` (8 tests): string vacío, JSON válido, filtro silencioso de entries corruptas (barKg inválido, source fuera del enum, exercise vacío), preserva `source: "auto-log"` (backward-compat).
+  - `getAllLastInputs` (7 tests): sin keys, una key, tres modalities, ignora keys no-`pd:last-input-*`, drop silencioso de corruptas, drop silencioso de shape inválido, modalityId arbitrario como suffix.
+  - `getSessionsRaw` / `getLastInputRaw` (4 tests): `""` para key ausente, JSON verbatim cuando hay data, scope por modalityId.
+  - `isQuotaError` (3 tests): `QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`, non-DOMException (Error, string, object, null, undefined).
+  - `exportAllData` (3 tests): `version: 1` + ISO `exportedAt`, vacío cuando localStorage está vacío, captura completa del snapshot.
+  - `importAllData` (3 tests): importa los 4 buckets correctamente, comportamiento con backup vacío (3 keys, no 4), preserva campos opcionales de `PersistedLastInput`.
+  - **Roundtrip export → clear → import → re-export** (1 test): equivalente a `data` (excluyendo `exportedAt` que es fresco).
+  - `clearAllData` (3 tests): remueve solo `pd:*`, no throw cuando vacío, dispara `storage` event por cada key.
+
+- **`resetLocalStorage()` helper en `vitest.setup.ts`**: wrapper de `localStorage.clear()` exportado para que los tests de storage lo importen explícitamente y la intención sea searchable.
+
+### Notes
+
+- **Decisión deliberada: NO reemplazar `globalThis.localStorage` con un stub manual.** El spec 0026 llamaba a un stub, pero al validar empíricamente, jsdom 25 sigue la spec WHATWG y NO auto-dispatcha el `storage` event en same-tab — el código de producción (`dispatchStorage`) existe precisamente para eso. Reemplazar el global con un stub rompía el brand check del `StorageEvent` constructor en jsdom 25 (`storageArea` debe ser del tipo `Storage` real). Documentado en el post-mortem de 0030.
+- **Cobertura: 100%** sobre los parsers y el flujo de backup en `storage.ts`. Validado por inspección visual (no hay `@vitest/coverage-v8` instalado — sigue siendo out-of-scope).
+- **Total acumulado del umbrella 0026**: 49 (post 0029) + 41 (0030) = **90 tests pasando**. Faltan solo los tests de componentes con RTL (0031) para cerrar el umbrella.
+- Storage schema **no cambió**. Prompt IA **no cambió**.
 
 ## [0.2.1] - 2026-09-02
 
