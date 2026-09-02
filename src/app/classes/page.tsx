@@ -99,6 +99,16 @@ export default function ClassesPage() {
             </li>
           </ul>
         </div>
+
+        {/* Settings link — discrete, below the catalog (issue 0025) */}
+        <div className="border-t border-hairline pt-4 flex justify-end">
+          <Link
+            href="/settings"
+            className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors"
+          >
+            Configuración →
+          </Link>
+        </div>
       </main>
     </div>
   );
