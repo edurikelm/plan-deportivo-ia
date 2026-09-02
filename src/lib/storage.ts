@@ -526,3 +526,188 @@ export function subscribeToLastInput(
   return () => window.removeEventListener("storage", handler);
 }
 
+/**
+ * Reads every `pd:last-input-*` key from localStorage and returns them as
+ * a `{ [modalityId]: PersistedLastInput }` map. Corrupt entries are
+ * dropped silently (consistent with the rest of the read path).
+ *
+ * Powers the backup export on `/settings`. Cross-tab safe: reads whatever
+ * is in the localStorage snapshot at call time.
+ */
+export function getAllLastInputs(): Record<string, PersistedLastInput> {
+  if (typeof window === "undefined") return {};
+  const result: Record<string, PersistedLastInput> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(LAST_INPUT_PREFIX)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw) as PersistedLastInput;
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          typeof parsed.strengthSkill === "string"
+        ) {
+          const modalityId = key.slice(LAST_INPUT_PREFIX.length);
+          result[modalityId] = parsed;
+        }
+      } catch {
+        // Skip corrupt entry
+      }
+    }
+  } catch (err) {
+    console.warn("[pd:last-input-*] failed to enumerate:", err);
+  }
+  return result;
+}
+
+// ─── Backup / restore / clear-all (settings page) ────────────────────────────
+
+/**
+ * Current backup format version. Bump this when the shape changes in a
+ * way that older imports can't be safely upgraded automatically. Forward
+ * compatibility (importing a backup with a higher `version`) is allowed
+ * with a warning toast — backward compatibility is the responsibility of
+ * the importer to handle missing fields.
+ */
+export const BACKUP_VERSION = 1;
+
+export type BackupShape = {
+  exportedAt: string;
+  version: number;
+  data: {
+    sessions: SavedSession[];
+    calculatorState: CalculatorState;
+    calculatorRecords: SavedWeightRecord[];
+    lastInputs: Record<string, PersistedLastInput>;
+  };
+};
+
+/**
+ * Aggregates every persisted `pd:*` key into a single backup object ready
+ * to be JSON-serialised. Read-only — does not mutate storage.
+ */
+export function exportAllData(): BackupShape {
+  return {
+    exportedAt: new Date().toISOString(),
+    version: BACKUP_VERSION,
+    data: {
+      sessions: getSessions(),
+      calculatorState: getCalculatorState(),
+      calculatorRecords: getRecords(),
+      lastInputs: getAllLastInputs(),
+    },
+  };
+}
+
+export type ImportResult = {
+  ok: boolean;
+  imported: string[];
+  errors: string[];
+};
+
+/**
+ * Writes every key from a backup into localStorage. Returns a structured
+ * result so the UI can surface partial failures (some keys imported, some
+ * not) instead of just "ok / not ok".
+ *
+ * Quota errors are caught and reported per-key. Other IO errors are also
+ * captured. The function never throws — the caller decides how to react.
+ */
+export function importAllData(shape: BackupShape): ImportResult {
+  const imported: string[] = [];
+  const errors: string[] = [];
+
+  // Sessions
+  try {
+    setSessions(shape.data.sessions);
+    imported.push("sessions");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "sessions: almacenamiento lleno"
+        : `sessions: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Calculator state
+  try {
+    setCalculatorState(shape.data.calculatorState);
+    imported.push("calculatorState");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "calculatorState: almacenamiento lleno"
+        : `calculatorState: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Calculator records
+  try {
+    setRecordsRaw(shape.data.calculatorRecords);
+    imported.push("calculatorRecords");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "calculatorRecords: almacenamiento lleno"
+        : `calculatorRecords: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Last inputs (per modality)
+  for (const [modalityId, input] of Object.entries(shape.data.lastInputs)) {
+    try {
+      setLastInput(modalityId, input);
+      imported.push(`lastInput:${modalityId}`);
+    } catch (err) {
+      errors.push(
+        isQuotaError(err)
+          ? `lastInput:${modalityId}: almacenamiento lleno`
+          : `lastInput:${modalityId}: ${err instanceof Error ? err.message : "error"}`,
+      );
+    }
+  }
+
+  return { ok: errors.length === 0, imported, errors };
+}
+
+/**
+ * Internal write helper for `importAllData`. Sets the records key directly
+ * with a synthetic `storage` event so same-tab consumers refresh.
+ */
+function setRecordsRaw(records: SavedWeightRecord[]): void {
+  const json = JSON.stringify(records);
+  localStorage.setItem(RECORDS_KEY, json);
+  dispatchStorage(RECORDS_KEY, json);
+}
+
+/**
+ * Removes every `pd:*` key from localStorage. Fires a synthetic `storage`
+ * event for each removed key so same-tab consumers re-read their snapshot
+ * (e.g. `/classes` banner disappears, `/sessions` shows empty state).
+ *
+ * Use only after the user has confirmed intent. The `/settings` page wraps
+ * this with a double `window.confirm`.
+ */
+export function clearAllData(): void {
+  if (typeof window === "undefined") return;
+  const keysToRemove: string[] = [];
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("pd:")) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+      // Dispatch with empty value — the StorageEvent convention for "deleted"
+      dispatchStorage(key, "");
+    }
+  } catch (err) {
+    console.warn("[pd:*] failed to clear:", err);
+  }
+}
+
