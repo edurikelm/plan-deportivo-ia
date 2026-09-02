@@ -40,19 +40,19 @@ function PhaseBlock({
       <header className="flex items-baseline gap-3 mb-2">
         <span
           aria-hidden
-          className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-signal shrink-0 mt-0.5"
+          className="numeric-label text-[0.6875rem] text-signal shrink-0 mt-0.5"
         >
           {number}
         </span>
         <h3 className="font-display italic font-semibold text-base tracking-tight text-bone flex-1 leading-none">
           {label}
         </h3>
-        <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
+        <span className="numeric-label text-[0.6875rem] text-mute shrink-0">
           {durationMin} min
         </span>
       </header>
       <div
-        className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none prose-li:my-1"
+        className="prose prose-invert prose-chalk"
         style={{ fontSize: "0.9375rem", lineHeight: 1.55 }}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -81,7 +81,7 @@ export function CrossFitPlanView({ plan }: CrossFitPlanViewProps) {
           CrossFit · {plan.estimated_duration_min} min estimadas
         </p>
         {plan.focus_movement && (
-          <p className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute mt-1">
+          <p className="numeric-label text-[0.6875rem] text-mute mt-1">
             Enfoque: {plan.focus_movement}
           </p>
         )}
