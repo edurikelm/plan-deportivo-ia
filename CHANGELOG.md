@@ -10,9 +10,35 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 
 | Bump | Cuándo | Ejemplos |
 |---|---|---|
-| **PATCH** (`0.1.x`) | Invisible para el usuario | bugfix, refactor interno, chore (deps, lint), tests, docs |
-| **MINOR** (`0.x.0`) | Features visibles o cambios de UX | cada umbrella cerrada (0018 → 0.2.0), nueva página, nuevo flujo |
+| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1 |
+| **MINOR** (`0.x.0`) | **Umbrella con feature visible al usuario** (nueva página, nuevo flujo, cambio de UX) | umbrella 0018 (UI/UX polish) → 0.2.0 |
 | **MAJOR** (`x.0.0`) | Breaking o rediseño grande | cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0 |
+
+> **Refinamiento (post-0.2.0):** la política original decía "cada umbrella cerrada = MINOR".
+> Se ajusta porque las umbrellas de infra (tests, tooling) no entregan features visibles al usuario
+> y bumpear minor por ellas engaña al consumidor del versionado. Las umbrellas de infra van como
+> PATCH acumulado; las umbrellas con feature visible van como MINOR.
+
+## [0.2.1] - 2026-09-02
+
+Umbrella **0026 — Test infrastructure**, milestones **M1, M2 y M3** cerrados. 49 tests automatizados pasando.
+
+> El spec `0026-test-infra.md` sigue `open` (faltan M4 storage parsers y M5 React Testing Library), pero los 3 milestones cerrados ya son un salto significativo: el proyecto pasa de 0 a 50 tests.
+
+### Added
+
+- **Vitest 3.x** como test runner (`0027`): jsdom environment nativo, alias `@/*` → `./src/*`, scripts `test` y `test:watch` en `package.json`.
+- **Test setup** (`0027`): `vitest.config.ts` + `vitest.setup.ts` con `@testing-library/jest-dom/vitest`. `coverage/` agregado a `.gitignore`.
+- **Smoke test** (`0027`): `test/smoke.test.ts` con `expect(1 + 1).toBe(2)`, reemplazado en M2 por tests reales.
+- **30 tests de `calculator/history.ts`** (`0028`): `computeTotals` (caso vacío, single exercise con `plateMath`, multi-exercise mixed units, edge cases decimal/NaN), `hashState` (determinismo, sensibilidad por campo, formato), `normalizeExerciseName` (lowercase, trim, colapsar espacios, prefijos/sufijos), `dedupeExercises` (orden estable, case-insensitive).
+- **19 tests de `sessions.ts` + `clipboard.ts`** (`0029`): `loadSessionInto` (preserva `id`/`createdAt`/`model`, sobreescribe `markdown`/`structured`/`input`/`title`/`persisted`, idempotente), `markdownFilename` (formato, caracteres especiales, sufijo `.md`).
+- **Total: 49 tests pasando** (el smoke test inicial de M1 fue reemplazado por el primer test real de M2, no se acumula).
+
+### Notes
+
+- **0 → 49 tests** en un solo commit. El seam natural testeable fue `src/lib/calculator/history.ts` y los helpers puros de sessions/clipboard, sin requerir mocks complejos.
+- **Sin coverage gate todavía** (umbral tentativo en spec 0026: ≥ 50% cobertura en `src/lib/` cuando se cumplan los milestones M4 y M5).
+- Storage schema **no cambió**. Prompt IA **no cambió**.
 
 ## [0.2.0] - 2026-09-02
 
@@ -49,6 +75,7 @@ Umbrella **0018 — UI/UX polish**. Cierra 7 tickets (`0019`–`0025`).
 
 Release inicial. MVP con `/classes` (CRUD), `/generate` (generación IA con MiniMax-Text-01), calculator con saved records, mini-history, sessions guardadas. Sin página de settings, sin export/import, sin tests automatizados.
 
-[Unreleased]: https://github.com/edurikelm/plan-deportivo-ia/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/edurikelm/plan-deportivo-ia/releases/tag/v0.2.0
+[Unreleased]: https://github.com/edurikelm/plan-deportivo-ia/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/edurikelm/plan-deportivo-ia/releases/tag/v0.2.1
+[0.2.0]: https://github.com/edurikelm/plan-deportivo-ia/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/edurikelm/plan-deportivo-ia/releases/tag/v0.1.0

@@ -74,18 +74,23 @@ Si hay duda entre 1 y 2 → escalar hacia arriba.
 
 ## Versionado
 
-La app usa **SemVer** (`MAJOR.MINOR.PATCH`) en `package.json`. Política vigente desde `0.2.0`.
+La app usa **SemVer** (`MAJOR.MINOR.PATCH`) en `package.json`. Política vigente desde `0.2.1`.
 
-- **PATCH** (invisible al usuario): bugfix, refactor interno, chore, tests, docs.
-- **MINOR** (feature visible o cambio de UX): cada umbrella cerrada, nueva página, nuevo flujo.
+- **PATCH** (invisible al usuario): bugfix, refactor, chore, **umbrella de infra** (tests, deps, tooling).
+- **MINOR** (feature visible o cambio de UX): **cada umbrella con feature visible al usuario** (nueva página, nuevo flujo, cambio de comportamiento de UI).
 - **MAJOR** (breaking): cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0.
+
+> **Refinamiento post-0.2.0:** las umbrellas de infra (ej. 0026 test infra) bumpean PATCH,
+> no MINOR. Razón: un minor debería significar "hay algo nuevo que el usuario puede ver o
+> hacer". Tests automatizados no califican.
 
 **Proceso al cerrar una umbrella:**
 
-1. Bumpear `package.json` según el criterio de arriba.
-2. Agregar entrada nueva al top de `CHANGELOG.md` (formato [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)).
-3. Commit con mensaje `chore(release): bump to vX.Y.Z`.
-4. Tag git: `git tag vX.Y.Z`.
+1. Clasificar la umbrella: ¿entrega feature visible? → MINOR. ¿es infra (tests/tooling/refactor invisible)? → PATCH.
+2. Bumpear `package.json` según la clasificación.
+3. Agregar entrada nueva al top de `CHANGELOG.md` (formato [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)).
+4. Commit con mensaje `chore(release): bump to vX.Y.Z`.
+5. Tag git: `git tag vX.Y.Z`.
 
 La versión es visible en `/settings` → "Acerca de" (lee `pkg.version` directamente desde `package.json`).
 
