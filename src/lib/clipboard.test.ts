@@ -28,7 +28,7 @@ describe("copyToClipboard", () => {
   it("returns {ok: true} when navigator.clipboard.writeText resolves", async () => {
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     const result = await copyToClipboard("hello world");
-    expect(result).toEqual({ ok: false }); // INTENTIONALLY BROKEN FOR CI TEST
+    expect(result).toEqual({ ok: true });
     expect(navigator.clipboard.writeText).toHaveBeenCalledExactlyOnceWith(
       "hello world",
     );
