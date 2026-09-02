@@ -34,19 +34,36 @@ export async function copyToClipboard(
 }
 
 /**
- * Trigger a browser download of `text` as a markdown file. Synchronous
- * fire-and-forget — there is no useful result to return, and the browser
- * handles the actual save dialog.
+ * Trigger a browser download of `text` as a file with the given filename and
+ * MIME type. Synchronous fire-and-forget — there is no useful result to
+ * return, and the browser handles the actual save dialog.
+ *
+ * Generalised from a markdown-only helper in issue 0025: the JSON backup
+ * export on `/settings` reuses the same plumbing for `application/json`.
  */
-export function downloadAsMarkdown(filename: string, text: string): void {
+export function downloadAsFile(
+  filename: string,
+  mimeType: string,
+  text: string,
+): void {
   if (typeof document === "undefined") return;
-  const blob = new Blob([text], { type: "text/markdown" });
+  const blob = new Blob([text], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Markdown-specific wrapper kept for the existing call sites
+ * (`generate-client.tsx` result actions, mini-history, `/sessions`). All
+ * new code should prefer `downloadAsFile` directly when the content isn't
+ * markdown.
+ */
+export function downloadAsMarkdown(filename: string, text: string): void {
+  downloadAsFile(filename, "text/markdown", text);
 }
 
 /**
