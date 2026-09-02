@@ -1,7 +1,8 @@
 ---
 label: feature
-status: open
+status: closed
 parent: null
+closed_at: 2026-09-02
 ---
 
 # 0018 — UI/UX polish: guards, history completeness, design tokens
