@@ -318,7 +318,7 @@ export function HistoryPageClient() {
           </h1>
         </div>
         {hasRecords && (
-          <span className="font-mono tabular-nums text-[0.6875rem] text-mute shrink-0">
+          <span className="numeric text-[0.6875rem] text-mute shrink-0">
             {filterIsActive && records.length !== filtered.length
               ? `${filtered.length} de ${records.length}`
               : `${records.length} ${records.length === 1 ? "registro" : "registros"}`}
@@ -511,10 +511,10 @@ function HistoryRecordRow({
             {sourceLabel(record.source)}
           </span>
         </div>
-        <p className="font-mono tabular-nums text-sm text-bone mt-1">
+        <p className="numeric text-sm text-bone mt-1">
           {record.totalKg.toFixed(1)} kg · {record.totalLb.toFixed(1)} lb
         </p>
-        <p className="font-mono tabular-nums text-[0.8125rem] text-mute mt-0.5 truncate">
+        <p className="numeric text-[0.8125rem] text-mute mt-0.5 truncate">
           {record.breakdownLine}
         </p>
         <p className="font-sans text-[0.6875rem] text-mute mt-1.5">
