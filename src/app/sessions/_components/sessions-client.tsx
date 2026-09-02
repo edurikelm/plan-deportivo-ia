@@ -238,7 +238,9 @@ export function SessionsClient() {
                   aria-label="Ordenar por"
                   className="h-10 px-3.5 sm:w-48 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular-nums focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {SORT_OPTIONS.find((o) => o.value === sort)?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-hairline text-bone">
                   {SORT_OPTIONS.map((opt) => (
