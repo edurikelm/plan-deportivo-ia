@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same branch when a new commit is pushed.
+# Saves CI minutes when devs push follow-up commits to a PR quickly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "package-lock.json"
+
+      # `--legacy-peer-deps` is required because the project has unresolved
+      # peer-dep conflicts between Next.js 16, React 19, and the Vite/Vitest
+      # 3.x plugin chain. Documented in the post-mortem of ticket 0032
+      # (see docs/agents/issues/0032-coverage-gate.md). Remove this flag
+      # when the underlying conflict is resolved (likely by upgrading to
+      # Node 22 + npm 10+ where the conflict doesn't trigger).
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        # `coverage/` is gitignored. The HTML report is the most useful
+        # artifact for debugging locally — downloaded from the workflow
+        # run and opened in a browser.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore
