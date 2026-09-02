@@ -332,7 +332,7 @@ function FilterChip({
   );
 }
 
-function SessionListItem({
+export function SessionListItem({
   session,
   onLoad,
   onCopy,

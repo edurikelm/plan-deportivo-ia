@@ -10,7 +10,7 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 
 | Bump | Cuándo | Ejemplos |
 |---|---|---|
-| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1, 0.2.2 |
+| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1, 0.2.2, 0.2.3 |
 | **MINOR** (`0.x.0`) | **Umbrella con feature visible al usuario** (nueva página, nuevo flujo, cambio de UX) | umbrella 0018 (UI/UX polish) → 0.2.0 |
 | **MAJOR** (`x.0.0`) | Breaking o rediseño grande | cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0 |
 
@@ -18,6 +18,36 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 > Se ajusta porque las umbrellas de infra (tests, tooling) no entregan features visibles al usuario
 > y bumpear minor por ellas engaña al consumidor del versionado. Las umbrellas de infra van como
 > PATCH acumulado; las umbrellas con feature visible van como MINOR.
+
+## [0.2.3] - 2026-09-02
+
+Umbrella **0026 — Test infrastructure**, milestone **M5** cerrado. **Umbrella 0026 completo**: 105 tests pasando en 6 archivos. `RecentActivityBanner` y `SessionListItem` ahora tienen tests automatizados con React Testing Library.
+
+### Added
+
+- **7 tests de `RecentActivityBanner`** (`0031`, `src/app/classes/_components/recent-activity-banner.test.tsx`): render `null` cuando no hay sessions, banner con el session más reciente (ordenado por `createdAt`), singular "1 sesión guardada" vs plural "N sesiones guardadas", href del "Reabrir" link (`/generate/{modalityId}?fromSession={id}`), href del "N sesiones guardadas" link (`/sessions`), re-render cuando se dispatcha el `storage` event.
+- **8 tests de `SessionListItem`** (`0031`, `src/app/sessions/_components/session-list-item.test.tsx`): render del title, fallback `"(sin título)"` cuando title está vacío, meta line con model/duration/date, click handlers para `onLoad` / `onCopy` / `onExport` / `onDelete` (cada uno invoca el callback exactamente 1 vez con el session correcto), `aria-label` de cada acción incluye el título.
+- **`export` agregado a `SessionListItem`** en `sessions-client.tsx`: cambio aditivo de 1 keyword (`function` → `export function`). Necesario para que el componente sea testeable aislado desde el test file. Cero impacto en producción — el componente ya se usaba internamente.
+
+### Notes
+
+- **Decisión deliberada: `MiniHistory` (de `generate-client.tsx`) queda sin tests automatizados.** La mini-history no es un componente separado — es JSX embebido dentro de `GenerateClient` (un componente monolítico de 60KB que controla 10+ `useState`). Testearla aislada requeriría un refactor de extracción (su propio ticket). La lógica crítica está cubierta indirectamente por los tests de `storage.ts`.
+- **`ListAction` no se exporta (decisión deliberada).** Es un sub-componente privado de `SessionListItem` que arma el `aria-label` con el título. Su lógica se ejercita indirectamente via el test "uses the supplied title in each action's aria-label" que verifica las 4 acciones del `SessionListItem`.
+- **Patrón shadcn "Button with Link render" produce `<a role="button">`.** El test del "Reabrir" link usa `getByText("Reabrir").closest("a")` en lugar de `getByRole("link", ...)` porque el `role="button"` sobreescribe el role implícito "link" del `<a>`. Documentado en el post-mortem de 0031.
+- **Cobertura: 100% en los 2 componentes testeados.** Validado por inspección visual (no hay `@vitest/coverage-v8` instalado — sigue siendo out-of-scope).
+- **Total acumulado del umbrella 0026: 105 tests pasando** en 6 archivos. Umbrella cerrado tras 5 milestones (0027 setup, 0028 history, 0029 sessions+clipboard, 0030 storage, 0031 components).
+- **0 → 105 tests** en un solo umbrella.
+- Storage schema **no cambió**. Prompt IA **no cambió**. UX **no cambió**.
+
+### Resumen de los milestones del umbrella 0026
+
+| Milestone | Ticket | Tests | Acumulado |
+|---|---|---|---|
+| M1 setup | 0027 | (1 smoke, removido) | 0 |
+| M2 history | 0028 | 30 | 30 |
+| M3 sessions+clipboard | 0029 | 19 | 49 |
+| M4 storage | 0030 | 41 | 90 |
+| M5 components | 0031 | 15 | 105 |
 
 ## [0.2.2] - 2026-09-02
 
