@@ -1,9 +1,10 @@
 ---
 label: chore
-status: open
+status: closed
 parent: 0018-ui-ux-polish
 depends_on: []
 blocks: []
+closed_at: 2026-09-02
 ---
 
 # 0024 — Design tokens: .numeric, .prose-chalk, cronómetro hierarchy
@@ -144,3 +145,51 @@ None — can start immediately.
 8. **Visual regression.**
    - Comparar la home `/classes` antes y después: idéntica visualmente.
    - Comparar `/generate/crossfit` con una sesión renderizada antes y después: idéntica visualmente (excepto el cronómetro que cambia de `text-2xl` a `text-xl`).
+
+## Post-mortem (closed 2026-09-02)
+
+### Lo que se hizo
+
+8 commits chicos, uno por archivo más el de utilities y el de docs:
+
+- `4121814` — add numeric + prose-chalk utilities
+- `3a6ba64` — refactor crossfit.tsx
+- `96565e9` — refactor generate-client (cronómetro + 11 prose overrides + 9 call sites)
+- `6ae238a` — refactor calculator-client (cronómetro + 15 call sites)
+- `c2aa065` — refactor saved-records-panel
+- `bcc1885` — refactor history-page-client
+- `e410826` — refactor sessions-client
+- `49c57cf` — DESIGN.md (numeric tier system, prose-chalk, elevation, mute rule)
+- `chore(0024): close` (este commit)
+
+### Acceptance criteria — todo verde
+
+- [x] `.numeric`, `.numeric-label`, `.numeric-display` en `globals.css` `@layer utilities` con scope explícito
+- [x] ~30 ocurrencias de `font-mono tabular(-nums)` reemplazadas
+- [x] `.prose-chalk` aplicada en `CrossFitPlanView` y en los 2 fallbacks de `ReactMarkdown` (`generate-client.tsx:868` y `:948`)
+- [x] Cronómetro en `/generate/crossfit`: `text-2xl` → `text-xl` + `numeric-display`
+- [x] Cronómetro en `/tools/weight-calculator` (analyze foto state): mismo cambio por consistencia
+- [x] `text-mute-strong` ya estaba funcionando (auto-mapeo desde `--color-mute-strong` token) — no requirió cambio
+- [x] DESIGN.md: Typography, Components, Elevation, Mute rule actualizados
+- [x] `npm run build` — pasa limpio (10/10 static pages, 4.8s compile, 6.4s typecheck)
+- [x] `npm run lint` — 0 errores. 1 warning preexistente en `scripts/verify-vision.ts` (no introducido por este ticket)
+
+### Hallazgos durante la impl
+
+- **`.text-mute-strong` ya existía como utility funcional** (Tailwind v4 mapea automáticamente cualquier token CSS declarado en `@theme inline`, así que `--color-mute-strong` ya generaba la clase). El código en `generate-client.tsx:788, 809` ya la usaba y funcionaba. Lo único que faltaba era documentarla en DESIGN.md.
+- **El viejo `.tabular` de `@layer base` aplicaba `font-variant-numeric: tabular-nums` globalmente** a todo el documento (no era scoped como utility). Esto quedó implícito en el sistema por años; ningún test lo detectó porque todos los números se ven igual con o sin tabular-nums en tamaños grandes. Lo removí junto con la introducción de las utilities explícitas — si quedaba, los call sites con `numeric` recibían doble `tabular-nums` (sigue funcionando, pero era ruido).
+- **Línea 703 de `calculator-client.tsx` se me escapó en el primer pase** (string muy similar a la 691 pero sin `disabled:opacity-50`); el grep posterior lo cazó y amend al commit.
+- **Cronómetro de `calculator-client.tsx`** no estaba en el ticket original (sólo mencionaba `generate-client.tsx:502, 506`), pero usa exactamente el mismo patrón visual (mismo `<time>` con mono tabular, mismo `text-2xl` overwhelming el label). Por consistencia de sistema lo cambié igual. Si querés revertirlo a `text-2xl`, está en la línea 587/591 con el patrón `numeric-display text-xl leading-none tracking-tight`.
+
+### Patrones nuevos establecidos (consultar antes de introducir variantes)
+
+- **Numeric tier system**: tres niveles (`.numeric` / `.numeric-label` / `.numeric-display`). Si necesitás un cuarto nivel (e.g. `numeric-button` para CTAs con tracking 0.10em), evalúa primero si el `tracking-[0.10em]` inline es suficiente. No proliferar utilities.
+- **`.prose-chalk` como única fuente de verdad del prose**: nunca redefinir `prose-headings:*` o `prose-strong:*` inline. Si necesitás override (e.g. `prose-h1:text-2xl` en el fallback editor), agregalo como utility encima de `prose-chalk` — la jerarquía base se mantiene intacta.
+- **Cronómetro en estado activo**: `numeric-display text-xl leading-none tracking-tight`. El `text-xl` (no `2xl`) es la decisión deliberada para que el label "Generando" / "Analizando" siga siendo visualmente más prominente que los dígitos. Resiste el impulso de volver a `text-2xl`.
+- **`text-mute-strong` sólo para sufijos inline que pertenecen al label** (e.g. `(opcional)`). No usar para "elevar" algo. Si necesita más prominencia, escalá a `text-bone` o a una Label uppercase.
+
+### Out of scope / no tocado
+
+- Inputs que sólo tienen `font-mono` sin `tabular-nums` (e.g. el search input de `/sessions`) los dejé como `font-mono`. Agregar `tabular-nums` ahí es un cambio visual que no estaba en el scope. Si querés consistencia absoluta, es un commit de 2 líneas.
+- El `style={{ fontSize: "0.9375rem", lineHeight: 1.55 }}` inline de `CrossFitPlanView` se mantuvo. Es un override per-componente (escala de texto de la chalk card) y no es candidato a utility.
+- No se introdujo `prefers-reduced-motion` consideration para el cambio de `text-2xl` → `text-xl` (no aplica — no es motion, es hierarchy).
