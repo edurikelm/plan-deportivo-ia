@@ -139,10 +139,20 @@ Una sola paleta en una sola página: matte canvas, panel apenas un escalón arri
 - **Label** (Inter, 500 uppercase, `0.6875rem`, letter-spacing `+0.08em`): etiquetas de campo, estados de la status strip (GENERAR · IDLE · ACTIVE). Tracking generoso pero no decorativo.
 - **Mono** (Geist Mono, 400/500, `0.875rem`, tabular): cifras de carga, conteos de ejercicios, IDs visibles, el markdown crudo en vista de editor.
 
+### Numeric utilities (mono + tabular tier system)
+
+Tres utilities oficiales para cualquier lugar donde aparezca un numeral. Scope explícito: sólo los elementos que optan vía className, nada de cascada global.
+
+- **`.numeric`** — base: Geist Mono + `tabular-nums`. Para cifras inline sueltas (totales, conteos, kg/lb en inputs).
+- **`.numeric-label`** — base + `letter-spacing: 0.04em`. Para meta lines compactas ("12 min", "12/08 · 60 min", "5 cargas"). Es el más usado.
+- **`.numeric-display`** — base + `font-feature-settings: "tnum" 1, "cv11"`. Reservado para readouts grandes donde la distinción de dígitos importa (cronómetro en estado activo, big total sticky de la calculadora).
+
+> **Histórico**: hasta 0024 cada call site repetía `font-mono tabular-nums` + `tracking-[0.04em]` inline. La proliferación (~30 ocurrencias) hacía que cambiar el tracking del sistema o agregar `font-feature-settings` para el cronómetro fuera un refactor manual propenso a regresiones. Las utilities centralizan la regla.
+
 ### Named Rules
 
 - **The Type-Voice Rule.** El display italic sólo se usa en nombres propios (Idea, Clase). Nunca en UI labels ni en párrafos de ayuda.
-- **The Tabular Rule.** Cualquier número visible al usuario (no sólo en datos) usa `font-variant-numeric: tabular-nums` para que las cifras no salten cuando cambian.
+- **The Tabular Rule.** Cualquier número visible al usuario (no sólo en datos) usa `font-variant-numeric: tabular-nums` para que las cifras no salten cuando cambian. Hoy se aplica a través de las utilities `.numeric` / `.numeric-label` / `.numeric-display` — no más `tabular-nums` inline.
 - **The Measure Rule.** Prosa limitada a 65–75ch. En la chalk card el contenido se permite correr hasta `max-w-prose`, pero los metadatos que flanquean el título viven en una sola línea compacta.
 
 ## Layout
@@ -170,7 +180,13 @@ Sin sidebar en el MVP. Una columna, mobile-first, con `max-w-3xl` (48rem) en des
 
 ## Elevation & Depth
 
-**No shadows. No glow. No gradients.** Profundidad se construye únicamente con luminosidad: el panel vive en `oklch(0.18)` contra un canvas en `oklch(0.13)`, y cuando algo pide más elevación (un popover, un overlay de carga) salta a `oklch(0.20)`. Los separadores son hairlines `1px`, no sombras.
+**No shadows. No glow. No gradients.** Profundidad se construye únicamente con luminosidad. La jerarquía es estricta y tiene tres niveles:
+
+1. **Canvas** (`oklch(0.13 0.005 270)` ≈ `#0A0B0D`) — el fondo de toda la app. La pizarra. Una superficie nunca está en canvas; el canvas es lo que *rodea* las superficies.
+2. **Panel** (`oklch(0.18 0.008 270)` ≈ `#13151A`) — la chalk card, los inputs, los chips. Un paso arriba de canvas, separado por hairline. Toda superficie que contiene datos vive acá.
+3. **Popover** (`oklch(0.20 0.008 270)`) — sólo se usa para elementos que necesitan elevarse *sobre* un panel: tooltips, overlays de carga, toasts con peso visual. Nunca se aplica a una página completa.
+
+La flecha **`canvas < panel < popover`** es la única dirección permitida. Un popover puede vivir sobre un panel; un panel puede vivir sobre un canvas; nunca al revés. Los separadores entre niveles son hairlines `1px`, no sombras — la luminosidad del fondo carga toda la responsabilidad.
 
 ### The Hairline Field
 
@@ -248,7 +264,28 @@ El contenedor genérico del resultado para modalidades sin render dedicado. Mism
 
 ### CrossFitPlanView (modalidad CrossFit)
 
-Para la modalidad CrossFit, el resultado se renderiza con `CrossFitPlanView` en lugar del chalk-card fluido genérico. El componente muestra exactamente 4 bloques (Warm-Up, Strength/Skill, WOD, Cool Down), cada uno con label en display italic, duración en Geist Mono tabular, y contenido en Inter con `prose prose-invert`. Hairline entre bloques. El modo edición aplica la regla de tiza (border-left signal) sobre el bloque activo. Agregar futuras modalidades requiere solo un nuevo componente de render (BodybuildPlanView, GymnasticsPlanView, etc.) sin cambios en el layout circundante.
+Para la modalidad CrossFit, el resultado se renderiza con `CrossFitPlanView` en lugar del chalk-card fluido genérico. El componente muestra exactamente 4 bloques (Warm-Up, Strength/Skill, WOD, Cool Down), cada uno con label en display italic, duración en Geist Mono tabular, y contenido en Inter con `prose prose-invert prose-chalk`. Hairline entre bloques. El modo edición aplica la regla de tiza (border-left signal) sobre el bloque activo. Agregar futuras modalidades requiere solo un nuevo componente de render (BodybuildPlanView, GymnasticsPlanView, etc.) sin cambios en el layout circundante.
+
+### Prose styling — `.prose-chalk` utility
+
+Single source of truth para el prose que vive adentro de una chalk card / result panel. Centraliza los overrides de `prose prose-invert` (heading font/italic, strong/code color, p/li spacing, code backtick stripping) que antes vivían duplicados entre `CrossFitPlanView` y el fallback de `ReactMarkdown` en `generate-client`. Aplicar como:
+
+```tsx
+<div className="prose prose-invert prose-chalk">
+  <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+</div>
+```
+
+Si una superficie necesita ajustes *adicionales* (e.g. `prose-h1:text-2xl` en el fallback del editor), se agregan como clases utility encima de `prose-chalk` — nunca redefinir los overrides base inline. El objetivo es que cualquier cambio de jerarquía de prosa se haga en un solo lugar.
+
+### Mute vs. Mute-strong
+
+Dos pesos de la misma voz apagada. La regla de uso:
+
+- **`text-mute`** (default). Labels secundarios, metadatos, placeholders, descripciones de ayuda, separadores "·", fechas, duraciones. Aplica al 90% de los casos donde algo se "apaga" sin perder lectura.
+- **`text-mute-strong`** (más claro). Sufijos inline que se leen como *parte del label*, no como metadata ni como placeholder. Hoy: el sufijo "(opcional)" en `Foco de movimiento` y `Consideraciones del entrenador`. La regla: si la palabra pertenece al label y se borraría junto con él, es `mute-strong`. Si sobrevive al label (placeholder, helper text), es `mute`.
+
+No usar `mute-strong` para "elevar" algo que debería leerse. Si necesita más prominencia, subí a `text-bone` o mové a una voz de tipo más enfática (Label uppercase).
 
 ### Toasts
 

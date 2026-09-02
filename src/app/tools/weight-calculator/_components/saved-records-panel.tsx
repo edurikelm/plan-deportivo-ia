@@ -143,7 +143,7 @@ export function SavedRecordsPanel({ onLoad }: SavedRecordsPanelProps) {
           Registros
         </p>
         {records.length > 0 && (
-          <span className="font-mono tabular-nums text-[0.6875rem] text-mute">
+          <span className="numeric text-[0.6875rem] text-mute">
             {records.length} {records.length === 1 ? "carga" : "cargas"}
           </span>
         )}
@@ -190,10 +190,10 @@ function SavedRecordRow({ record, onLoad }: SavedRecordRowProps) {
         <p className="font-display italic font-semibold text-base leading-tight text-bone truncate">
           {record.exercise ?? "(sin etiqueta)"}
         </p>
-        <p className="font-mono tabular-nums text-sm text-bone mt-1">
+        <p className="numeric text-sm text-bone mt-1">
           {record.totalKg.toFixed(1)} kg · {record.totalLb.toFixed(1)} lb
         </p>
-        <p className="font-mono tabular-nums text-[0.8125rem] text-mute mt-0.5 truncate">
+        <p className="numeric text-[0.8125rem] text-mute mt-0.5 truncate">
           {record.breakdownLine}
         </p>
       </div>

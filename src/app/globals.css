@@ -59,6 +59,10 @@
   --color-hairline-strong: oklch(1 0 0 / 18%);
   --color-signal-deep: oklch(0.78 0.16 130);
   --color-mute: var(--muted-foreground);
+  /* Mute-strong: brighter than mute, reserved for inline label suffixes
+     (e.g. "(opcional)") that should read as part of the label, not as
+     metadata or placeholder. Distinct from placeholder text. */
+  --color-mute-strong: oklch(0.78 0.005 80);
 
   /* Type */
   --font-sans: var(--font-inter);
@@ -192,15 +196,70 @@
     font-feature-settings: "ss01", "cv11";
     letter-spacing: -0.015em;
   }
-
-  /* Tabular numerals for any time/count display */
-  .tabular {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "cv11";
-  }
 }
 
 @layer utilities {
+  /* ── Numeric utilities ──────────────────────────────────────────────
+     Three tiers of the same "mono + tabular" recipe:
+     - `.numeric`        — base: mono + tabular-nums. For inline data
+                           (cifras sueltas, inputs, conteos).
+     - `.numeric-label`  — base + tracking 0.04em. For meta lines
+                           (date · duration, "12 min", etc.).
+     - `.numeric-display`— base + font-feature-settings: tnum + cv11.
+                           Reserved for big readouts where the digit
+                           distinction matters (cronómetro, big total).
+     None of these cascade to the rest of the page — they're scoped
+     to elements that opt in via className. */
+  .numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .numeric-label {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+  .numeric-display {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv11";
+  }
+
+  /* ── prose-chalk ────────────────────────────────────────────────────
+     Single source of truth for the prose styling that lives inside a
+     chalk card / result panel. Unifies the overrides that used to be
+     duplicated across CrossFitPlanView and the ReactMarkdown fallback
+     in generate-client. Apply as `<div className="prose prose-invert
+     prose-chalk">` — never redefine `prose-headings:*` inline. */
+  .prose-chalk {
+    max-width: 65ch;
+  }
+  .prose-chalk :where(p) {
+    margin-block: 0.75rem;
+    line-height: 1.55;
+  }
+  .prose-chalk :where(h1, h2, h3, h4) {
+    font-family: var(--font-display);
+    font-style: italic;
+    letter-spacing: -0.015em;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .prose-chalk :where(strong) {
+    color: var(--foreground);
+  }
+  .prose-chalk :where(code) {
+    font-family: var(--font-mono);
+    color: var(--foreground);
+  }
+  .prose-chalk :where(code)::before,
+  .prose-chalk :where(code)::after {
+    content: none;
+  }
+  .prose-chalk :where(li) {
+    margin-block: 0.25rem;
+  }
+
   /* Chalk-card: square edges, hairline border, no shadow, no glow */
   .chalk-card {
     background-color: var(--card);

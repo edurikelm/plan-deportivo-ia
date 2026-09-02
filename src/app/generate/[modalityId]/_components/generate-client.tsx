@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Copy, Download, Pencil, RefreshCw, Save } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ArrowLeft, Copy, Download, FolderOpen, Pencil, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,7 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   addSession,
-  getRecentSessions,
+  getLastInput,
+  getRecentSessionsFromRaw,
+  getSessions,
+  getSessionsRaw,
+  removeSession,
+  setLastInput,
+  setSessions,
+  subscribeToSessions,
   updateSession,
 } from "@/lib/storage";
 import {
@@ -21,6 +29,8 @@ import {
   type CrossFitPlan,
 } from "@/lib/modalities/crossfit";
 import { getModality } from "@/lib/modalities/modalities";
+import { copyToClipboard, downloadAsMarkdown, markdownFilename } from "@/lib/clipboard";
+import { loadSessionInto } from "@/lib/sessions";
 import type { SavedSession } from "@/lib/types";
 
 interface GenerateClientProps {
@@ -31,6 +41,11 @@ interface FormErrors {
   strengthSkill?: string;
   wodFormat?: string;
 }
+
+type TouchedFields = {
+  strengthSkill: boolean;
+  wodFormat: boolean;
+};
 
 type WodFormat = "AMRAP" | "EMOM" | "For Time" | "Tabata" | "Intervalos" | "Aleatorio";
 
@@ -46,16 +61,113 @@ const WOD_FORMAT_OPTIONS: WodFormat[] = [
 export function GenerateClient({ modalityId }: GenerateClientProps) {
   const hydrated = useHydrated();
   const modality = getModality(modalityId) ?? null;
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Form state
-  const [durationMinutes, setDurationMinutes] = useState("60");
-  const [strengthSkill, setStrengthSkill] = useState("");
-  const [wodFormat, setWodFormat] = useState<WodFormat>("AMRAP");
-  const [focusMovement, setFocusMovement] = useState("");
-  const [considerations, setConsiderations] = useState("");
+  // Form state — single object so bulk hydrations (mount + load-from-history)
+  // are one `setForm` call instead of five, which keeps the
+  // `react-hooks/set-state-in-effect` rule happy. Per-field setters are
+  // stable function references that route through `setForm`; this preserves
+  // the existing `onChange` / `onClick` wiring without touching the JSX.
+  const [form, setForm] = useState<{
+    durationMinutes: string;
+    strengthSkill: string;
+    wodFormat: WodFormat;
+    focusMovement: string;
+    considerations: string;
+  }>({
+    durationMinutes: "60",
+    strengthSkill: "",
+    wodFormat: "AMRAP",
+    focusMovement: "",
+    considerations: "",
+  });
+  const { durationMinutes, strengthSkill, wodFormat, focusMovement, considerations } = form;
+  const setDurationMinutes = (v: string) =>
+    setForm((f) => ({ ...f, durationMinutes: v }));
+  const setStrengthSkill = (v: string) =>
+    setForm((f) => ({ ...f, strengthSkill: v }));
+  const setWodFormat = (v: WodFormat) => setForm((f) => ({ ...f, wodFormat: v }));
+  const setFocusMovement = (v: string) =>
+    setForm((f) => ({ ...f, focusMovement: v }));
+  const setConsiderations = (v: string) =>
+    setForm((f) => ({ ...f, considerations: v }));
   const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<TouchedFields>({
+    strengthSkill: false,
+    wodFormat: false,
+  });
 
   const DURATION_OPTIONS = ["45", "60", "75", "90"] as const;
+
+  // Form draft autosave + hydration (issue 0023).
+  //
+  // On mount, if a draft is persisted under `pd:last-input-{modalityId}`,
+  // hydrate the form from it. After hydration, persist on every change
+  // with a 500ms debounce. Empty optional fields are normalised to
+  // `undefined` inside `setLastInput` before write.
+  //
+  // We gate the persistence effect behind a `useRef` (not a state flag)
+  // so the hydration effect can mark itself as "already synced" before
+  // any `setState` call. The persistence effect reads the ref on every
+  // run; once true, it persists on subsequent field changes only — never
+  // the values that were just hydrated from storage.
+  const formHydratedRef = useRef(false);
+  const persistenceSkipRef = useRef(true);
+  useEffect(() => {
+    if (!hydrated || formHydratedRef.current) return;
+    formHydratedRef.current = true;
+    const saved = getLastInput(modalityId);
+    if (saved) {
+      // Mount-only one-shot hydration from localStorage. The useRef gate
+      // above (formHydratedRef.current) ensures this runs exactly once
+      // per mount per modalityId; it's not a "state sync" effect (we
+      // don't subscribe to storage changes here), it's a one-time
+      // replacement of the form's defaults with the persisted draft.
+      // The cascading-renders warning from this rule is a false positive
+      // for that pattern — see calculator-client.tsx for the same
+      // pattern via two setters.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        durationMinutes: saved.durationMinutes,
+        strengthSkill: saved.strengthSkill,
+        wodFormat: saved.wodFormat,
+        focusMovement: saved.focusMovement ?? "",
+        considerations: saved.considerations ?? "",
+      });
+    }
+  }, [hydrated, modalityId]);
+
+  useEffect(() => {
+    if (!formHydratedRef.current) return;
+    if (persistenceSkipRef.current) {
+      // Skip the first run after hydration — those are the values that
+      // came from storage, not a user edit.
+      persistenceSkipRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLastInput(modalityId, {
+        durationMinutes: durationMinutes as
+          | "45"
+          | "60"
+          | "75"
+          | "90",
+        strengthSkill,
+        wodFormat,
+        focusMovement,
+        considerations,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    modalityId,
+    durationMinutes,
+    strengthSkill,
+    wodFormat,
+    focusMovement,
+    considerations,
+  ]);
 
   // Generation state
   const [busy, setBusy] = useState(false);
@@ -71,14 +183,42 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [editedMarkdown, setEditedMarkdown] = useState<string | null>(null);
 
-  // Mini-history — loaded lazily on mount, refreshed after save
-  const [recentSessions, setRecentSessions] = useState<SavedSession[]>(() =>
-    hydrated ? getRecentSessions(5) : [],
+  // Mini-history — reactive snapshot of `pd:sessions`. The raw string is
+  // the snapshot; the parsed list is memoized off it. `dispatchStorage`
+  // fires a synthetic `storage` event on every same-tab write, so this
+  // memo re-runs automatically after `addSession` / `updateSession` /
+  // `removeSession` without an explicit refresh hook.
+  //
+  // The previous `useState(() => hydrated ? getRecentSessions(5) : [])`
+  // had a hydration race: on a hard refresh the initializer ran in SSR
+  // with `hydrated = false` and never re-ran after hydration, leaving the
+  // mini-history empty until the user navigated away and back.
+  const sessionsRaw = useSyncExternalStore(
+    subscribeToSessions,
+    getSessionsRaw,
+    () => "",
+  );
+  const recentSessions = useMemo(
+    () => getRecentSessionsFromRaw(sessionsRaw, 5),
+    [sessionsRaw],
   );
 
-  const refreshRecentSessions = useCallback(() => {
-    setRecentSessions(getRecentSessions(5));
-  }, []);
+  // Back navigation guard — same threshold as beforeunload, but for in-app nav.
+  // Middle-click and right-click semantics are intentionally dropped: the back
+  // button is a one-click action with confirmation, not a target for new-tab.
+  function handleBack() {
+    if (hasUnpersistedWork) {
+      const ok = window.confirm("Tenés cambios sin guardar. ¿Salir?");
+      if (!ok) return;
+    }
+    router.push("/classes");
+  }
+
+  // On-blur handler for form fields. Marks the field as touched so the
+  // error message becomes visible (matches the on-blur validation contract).
+  function handleBlur(field: keyof TouchedFields) {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  }
 
   // Accessibility
   const [announcement, setAnnouncement] = useState("");
@@ -134,6 +274,23 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     };
   }, []);
 
+  // Handle ?fromSession={id} query param from the /sessions page's Cargar
+  // action. Runs once after hydration; if the param is present and points
+  // to a valid session, rehydrate the active result and form from it.
+  // Empty deps + the hydrated gate ensure this fires exactly once per mount.
+  const fromSession = searchParams.get("fromSession");
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!fromSession) return;
+    const target = getSessions().find((s) => s.id === fromSession);
+    if (!target) return;
+    handleLoadFromHistory(target);
+    // Intentionally only react to the initial mount. We do NOT include
+    // `fromSession` or `handleLoadFromHistory` in deps to avoid a second
+    // load if the user later mutates the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
   // beforeunload guard — warn when there is unpersisted work
   useEffect(() => {
     if (!hasUnpersistedWork) return;
@@ -153,7 +310,9 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     return true;
   }
 
-  // Side-effecting variant — mutates `errors` state. Use only inside event handlers.
+  // Side-effecting variant — mutates `errors` state and marks all fields as
+  // touched so the on-blur validation contract surfaces them all at once.
+  // Use only inside event handlers.
   function validateAndSetErrors(): boolean {
     const newErrors: FormErrors = {};
     if (!strengthSkill.trim()) {
@@ -163,6 +322,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       newErrors.wodFormat = "El formato WOD es obligatorio";
     }
     setErrors(newErrors);
+    setTouched({ strengthSkill: true, wodFormat: true });
     return Object.keys(newErrors).length === 0;
   }
 
@@ -250,28 +410,22 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     }
   }
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!result) return;
     const text = editedMarkdown ?? result.markdown;
-    navigator.clipboard.writeText(text).then(
-      () => toast.success("Copiado al portapapeles"),
-      () => toast.error("No se pudo copiar"),
-    );
+    const outcome = await copyToClipboard(text);
+    if (outcome.ok) {
+      toast.success("Copiado al portapapeles");
+    } else {
+      toast.error("No se pudo copiar");
+    }
   }
 
   function handleExport() {
     if (!result) return;
     const text = editedMarkdown ?? result.markdown;
-    const slug = modality?.label.toLowerCase().replace(/\s+/g, "-") ?? "session";
-    const date = new Date().toLocaleDateString("en-CA");
-    const filename = `${slug}-${date}.md`;
-    const blob = new Blob([text], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = markdownFilename(modality?.label ?? "session");
+    downloadAsMarkdown(filename, text);
   }
 
   function handleSave() {
@@ -290,12 +444,54 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     } else {
       addSession(updated);
       setPersisted(true);
-      refreshRecentSessions();
+      // Mini-history re-renders automatically via the useSyncExternalStore
+      // subscription — `addSession` dispatches a synthetic storage event
+      // that the subscriber catches. No explicit refresh call needed.
     }
     setResult(updated);
     setEditedMarkdown(null);
     setMode("view");
     toast.success("Sesión guardada");
+  }
+
+  // Load a previously-saved session back into the active result for
+  // editing or regeneration. The form is hydrated with the session's
+  // original `input` so a follow-up Regenerar uses the same brief.
+  // `persisted: true` because the session already lives in storage; a
+  // subsequent Guardar will updateSession (idempotent on `id`).
+  function handleLoadFromHistory(session: SavedSession) {
+    const loaded = loadSessionInto(session);
+    setResult(loaded);
+    setEditedMarkdown(null);
+    setMode("view");
+    setPersisted(true);
+    setForm({
+      durationMinutes: loaded.input.durationMinutes,
+      strengthSkill: loaded.input.strengthSkill,
+      wodFormat: loaded.input.wodFormat as WodFormat,
+      focusMovement: loaded.input.focusMovement ?? "",
+      considerations: loaded.input.considerations ?? "",
+    });
+    toast.success("Sesión cargada - listo para regenerar o editar");
+  }
+
+  // Delete a session from the mini-history. Mirrors the same pattern as
+  // /sessions/page.tsx: snapshot the full sessions list BEFORE removing
+  // so the undo restore is position-preserving (the session returns to
+  // the same index, not appended at the end).
+  function handleDeleteFromHistory(session: SavedSession) {
+    const ok = window.confirm("¿Eliminar esta sesión?");
+    if (!ok) return;
+    const original = [...getSessions()];
+    removeSession(session.id);
+    toast("Sesión eliminada", {
+      description: session.title,
+      action: {
+        label: "Deshacer",
+        onClick: () => setSessions(original),
+      },
+      duration: 5000,
+    });
   }
 
   async function handleRegenerate() {
@@ -462,8 +658,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           <Button
             variant="ghost"
             size="icon"
-            nativeButton={false}
-            render={<Link href="/classes" />}
+            onClick={handleBack}
             aria-label="Volver al catálogo"
             className="size-7 rounded-md text-mute hover:text-bone hover:bg-transparent"
           >
@@ -490,7 +685,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           {busy ? (
             <time
               dateTime={`PT${minutes}M${seconds}S`}
-              className="flex items-center gap-2 font-mono tabular-nums"
+              className="flex items-center gap-2 numeric"
             >
               <span
                 aria-hidden
@@ -499,11 +694,11 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                 Generando
               </span>
               <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(minutes).padStart(2, "0")}
               </span>
               <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(seconds).padStart(2, "0")}
               </span>
             </time>
@@ -511,7 +706,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             <Button
               onClick={handleRegenerate}
               disabled={busy || !validate()}
-              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="numeric text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Regenerar
             </Button>
@@ -520,7 +715,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               type="submit"
               form="generate-form"
               disabled={busy}
-              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="numeric text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Generar
             </Button>
@@ -547,7 +742,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
                 Brief de la sesión
               </p>
-              <p className="font-mono tabular-nums text-[0.6875rem] text-mute">
+              <p className="numeric text-[0.6875rem] text-mute">
                 4 fases · {durationMinutes} min
               </p>
             </div>
@@ -574,7 +769,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     aria-checked={selected}
                     onClick={() => setDurationMinutes(m)}
                     disabled={busy}
-                    className={`font-mono tabular-nums text-sm px-3.5 py-1.5 rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`numeric text-sm px-3.5 py-1.5 rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected
                         ? "bg-signal text-signal-foreground border-signal"
                         : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
@@ -603,12 +798,17 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               placeholder="p. ej. Back Squat 5x5 @ 70% 1RM — técnica de sentadilla"
               value={strengthSkill}
               onChange={(e) => setStrengthSkill(e.target.value)}
+              onBlur={() => handleBlur("strengthSkill")}
               disabled={busy}
-              aria-invalid={Boolean(errors.strengthSkill)}
-              aria-describedby={errors.strengthSkill ? "strengthSkill-error" : undefined}
+              aria-invalid={Boolean(touched.strengthSkill && errors.strengthSkill)}
+              aria-describedby={
+                touched.strengthSkill && errors.strengthSkill
+                  ? "strengthSkill-error"
+                  : undefined
+              }
               className="min-h-24 px-3.5 py-3 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            {errors.strengthSkill && (
+            {touched.strengthSkill && errors.strengthSkill && (
               <p
                 id="strengthSkill-error"
                 className="font-sans text-[0.8125rem] text-destructive"
@@ -632,15 +832,26 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </label>
             <Select
               value={wodFormat}
-              onValueChange={(v) => setWodFormat(v as WodFormat)}
+              onValueChange={(v) => {
+                setWodFormat(v as WodFormat);
+                // mark as touched on actual interaction; default "AMRAP" is
+                // pre-selected, so no onBlur path is needed here.
+                if (!touched.wodFormat) {
+                  setTouched((prev) => ({ ...prev, wodFormat: true }));
+                }
+              }}
               disabled={busy}
               aria-labelledby="wodFormat-label"
-              aria-describedby={errors.wodFormat ? "wodFormat-error" : undefined}
+              aria-describedby={
+                touched.wodFormat && errors.wodFormat
+                  ? "wodFormat-error"
+                  : undefined
+              }
             >
               <SelectTrigger
                 id="wodFormat"
-                aria-invalid={Boolean(errors.wodFormat)}
-                className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
+                aria-invalid={Boolean(touched.wodFormat && errors.wodFormat)}
+                className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone numeric focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
               >
                 <SelectValue placeholder="Seleccionar formato…" />
               </SelectTrigger>
@@ -652,7 +863,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                 ))}
               </SelectContent>
             </Select>
-            {errors.wodFormat && (
+            {touched.wodFormat && errors.wodFormat && (
               <p
                 id="wodFormat-error"
                 className="font-sans text-[0.8125rem] text-destructive"
@@ -669,7 +880,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
             >
               Foco de movimiento{" "}
-              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute">
+              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute-strong">
                 (opcional)
               </span>
             </label>
@@ -690,7 +901,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               className="block font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
             >
               Consideraciones del entrenador{" "}
-              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute">
+              <span className="ml-2 text-[0.6875rem] font-normal normal-case tracking-normal text-mute-strong">
                 (opcional)
               </span>
             </label>
@@ -728,7 +939,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     {result.title}
                   </h2>
                 </div>
-                <div className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute text-right shrink-0">
+                <div className="numeric-label text-[0.6875rem] text-mute text-right shrink-0">
                   <div className="text-bone">
                     {new Date(result.createdAt).toLocaleDateString("es-AR", {
                       day: "2-digit",
@@ -749,7 +960,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     <CrossFitPlanView plan={result.structured} />
                   ) : (
                     <div
-                      className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:font-display prose-h3:not-italic prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none prose-li:my-1 prose-p:my-3 prose-headings:mt-5 prose-headings:mb-2"
+                      className="prose prose-invert prose-chalk prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:not-italic"
                     >
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {editedMarkdown ?? result.markdown}
@@ -775,7 +986,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleCopy}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Copiar"
                     >
                       <Copy className="size-3.5" />
@@ -785,21 +996,11 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleExport}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Exportar como markdown"
                     >
                       <Download className="size-3.5" />
                       Exportar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleRegenerate}
-                      disabled={busy || !validate()}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-3.5" />
-                      Regenerar
                     </Button>
                     <Button
                       variant="ghost"
@@ -808,7 +1009,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         setMode("edit");
                       }}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Editar"
                     >
                       <Pencil className="size-3.5" />
@@ -839,7 +1040,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         Vista previa
                       </p>
                       <div className="min-h-96 w-full border border-hairline rounded-sm px-4 py-3 overflow-auto">
-                        <div className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none">
+                        <div className="prose prose-invert prose-chalk">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {editedMarkdown ?? result.markdown}
                           </ReactMarkdown>
@@ -875,19 +1076,9 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     <div className="flex-1" />
                     <Button
                       variant="ghost"
-                      onClick={handleRegenerate}
-                      disabled={busy || !validate()}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
-                      aria-label="Regenerar"
-                    >
-                      <RefreshCw className="size-3.5" />
-                      Regenerar
-                    </Button>
-                    <Button
-                      variant="ghost"
                       onClick={handleCopy}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Copiar"
                     >
                       <Copy className="size-3.5" />
@@ -897,7 +1088,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleExport}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Exportar como markdown"
                     >
                       <Download className="size-3.5" />
@@ -935,7 +1126,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         <h3 className="font-display italic font-semibold text-sm leading-none tracking-tight text-bone truncate">
                           {s.title}
                         </h3>
-                        <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
+                        <span className="numeric-label text-[0.6875rem] text-mute shrink-0">
                           {new Date(s.createdAt).toLocaleDateString("es-AR", {
                             day: "2-digit",
                             month: "2-digit",
@@ -944,15 +1135,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                           {s.input.durationMinutes} min
                         </span>
                       </header>
-                      <footer className="mt-2 flex items-center gap-3">
+                      <footer className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(s.markdown).then(
-                              () => toast.success("Copiado al portapapeles"),
-                              () => toast.error("No se pudo copiar"),
-                            );
+                          onClick={() => handleLoadFromHistory(s)}
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Cargar sesión: ${s.title}`}
+                        >
+                          <FolderOpen className="size-3" />
+                          Cargar
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const outcome = await copyToClipboard(s.markdown);
+                            if (outcome.ok) {
+                              toast.success("Copiado al portapapeles");
+                            } else {
+                              toast.error("No se pudo copiar");
+                            }
                           }}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Copiar sesión: ${s.title}`}
                         >
                           <Copy className="size-3" />
@@ -960,24 +1161,25 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         </button>
                         <button
                           onClick={() => {
-                            const slug = modality.label.toLowerCase().replace(/\s+/g, "-");
-                            const date = new Date(s.createdAt).toLocaleDateString("en-CA");
-                            const filename = `${slug}-${date}.md`;
-                            const blob = new Blob([s.markdown], {
-                              type: "text/markdown",
-                            });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = filename;
-                            a.click();
-                            URL.revokeObjectURL(url);
+                            const filename = markdownFilename(
+                              modality.label,
+                              new Date(s.createdAt),
+                            );
+                            downloadAsMarkdown(filename, s.markdown);
                           }}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Exportar sesión: ${s.title}`}
                         >
                           <Download className="size-3" />
                           Exportar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFromHistory(s)}
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          aria-label={`Eliminar sesión: ${s.title}`}
+                        >
+                          <Trash2 className="size-3" />
+                          Eliminar
                         </button>
                       </footer>
                     </article>

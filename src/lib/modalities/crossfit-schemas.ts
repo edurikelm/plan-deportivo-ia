@@ -153,7 +153,15 @@ export function resolveAleatorio(strengthSkill: string): WodFormat {
 
 // ─── Session generator ───────────────────────────────────────────────────────
 
-const MODEL = "MiniMax-Text-01";
+/**
+ * Provider and model identifier used by the CrossFit generator. Exported so
+ * the `/settings` page (issue 0025) can surface them as read-only metadata
+ * without hardcoding the same strings in two places. When the model
+ * changes, update this constant — every call site (including the settings
+ * page) will follow.
+ */
+export const PROVIDER = "MiniMax";
+export const MODEL = "MiniMax-Text-01";
 
 /**
  * System prompt that asks for JSON output via prompt (no `response_format` —

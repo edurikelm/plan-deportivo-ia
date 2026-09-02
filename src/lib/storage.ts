@@ -98,6 +98,89 @@ export function getRecentSessions(limit = 5): SavedSession[] {
     .slice(0, limit);
 }
 
+/**
+ * Returns the raw JSON string stored under `pd:sessions`, or `""` if the
+ * key is missing or the read fails. Exposed for `useSyncExternalStore`
+ * consumers that want the raw string as their snapshot (see AGENTS.md
+ * storage-reactivo pattern).
+ */
+export function getSessionsRaw(): string {
+  try {
+    migrateIfNeeded();
+    return localStorage.getItem(SESSIONS_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Parses a raw JSON string into a list of saved sessions. Defensive on the
+ * read path: corrupt or non-array data returns `[]`. Mirrors
+ * `parseRecordsFromRaw` for the calculator-records side.
+ *
+ * No Zod validation here (SavedSession does not have a Zod schema defined
+ * yet — the `structured` field is loose `CrossFitPlan | null` and the
+ * consumer pages already tolerate a missing or partial `structured`).
+ * If the JSON shape ever needs to harden, add a `SavedSessionSchema`
+ * and validate per entry.
+ */
+export function parseSessionsFromRaw(raw: string): SavedSession[] {
+  try {
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.warn(
+        "[pd:sessions] expected array, discarding:",
+        typeof parsed,
+      );
+      return [];
+    }
+    return parsed as SavedSession[];
+  } catch (err) {
+    console.warn("[pd:sessions] failed to parse:", err);
+    return [];
+  }
+}
+
+/**
+ * Returns the most recent sessions parsed from a raw JSON string, newest
+ * first. Auto-logged entries are not relevant for sessions (sessions are
+ * always explicitly created) so no source filter applies.
+ *
+ * Accepts the raw string (instead of reading localStorage) so callers
+ * using `useSyncExternalStore` can memoize on the raw value cleanly
+ * without round-tripping through `localStorage.getItem`.
+ */
+export function getRecentSessionsFromRaw(
+  raw: string,
+  limit = 5,
+): SavedSession[] {
+  return parseSessionsFromRaw(raw)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, limit);
+}
+
+/**
+ * Subscribe to changes in `pd:sessions`. Triggers on both same-tab writes
+ * (via the synthetic `storage` event dispatched by `dispatchStorage`) and
+ * cross-tab writes (via the native `storage` event).
+ *
+ * Use with `useSyncExternalStore` so the consumer re-reads the raw
+ * snapshot on every change, including after `addSession` / `updateSession`
+ * / `removeSession` from the same tab.
+ */
+export function subscribeToSessions(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (e: StorageEvent) => {
+    if (e.key === SESSIONS_KEY) callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
 // ─── Calculator state ────────────────────────────────────────────────────────
 
 const CALCULATOR_KEY = "pd:calculator-state";
@@ -302,5 +385,329 @@ export function getRecentRecords(limit = 5): SavedWeightRecord[] {
     localStorage.getItem(RECORDS_KEY) ?? "",
     limit,
   );
+}
+
+// ─── Per-modality last input (form draft autosave) ──────────────────────────
+
+const LAST_INPUT_PREFIX = "pd:last-input-";
+
+/**
+ * Shape of the persisted form draft. Mirrors `CrossFitSessionInput` but
+ * accepts `"Aleatorio"` as a valid `wodFormat` because that's an option the
+ * form exposes to the coach (the system resolves it to a concrete format
+ * before calling the LLM, so it never reaches `crossfit-schemas.ts`).
+ *
+ * Optional fields are persisted as `undefined` (omitted from the JSON)
+ * rather than empty strings — this matches the Zod schema's `.optional()`
+ * and keeps the read path defensive.
+ */
+export type PersistedLastInput = {
+  durationMinutes: "45" | "60" | "75" | "90";
+  strengthSkill: string;
+  wodFormat:
+    | "AMRAP"
+    | "EMOM"
+    | "For Time"
+    | "Tabata"
+    | "Intervalos"
+    | "Aleatorio";
+  focusMovement?: string;
+  considerations?: string;
+};
+
+function lastInputKey(modalityId: string): string {
+  return `${LAST_INPUT_PREFIX}${modalityId}`;
+}
+
+/**
+ * Returns the persisted form draft for the given modality, or `null` if no
+ * draft has been saved yet (or the persisted JSON is corrupt). The optional
+ * fields (`focusMovement`, `considerations`) are read back as `undefined`
+ * when omitted, matching how they were written.
+ */
+export function getLastInput(modalityId: string): PersistedLastInput | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(lastInputKey(modalityId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedLastInput;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof parsed.strengthSkill !== "string"
+    ) {
+      console.warn(
+        `[pd:last-input-${modalityId}] corrupt data, discarding:`,
+        parsed,
+      );
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn(`[pd:last-input-${modalityId}] failed to parse:`, err);
+    return null;
+  }
+}
+
+/**
+ * Persists the form draft for the given modality. Empties are normalised
+ * to `undefined` before write (the schema treats them as optional). Uses
+ * `dispatchStorage` so same-tab consumers re-read the snapshot.
+ *
+ * Quota errors are logged and swallowed (consistent with the calculator
+ * autosave path) — the coach keeps working in-memory and we surface the
+ * failure through the same "Almacenamiento lleno" toast when triggered
+ * from a user action. The autosave path itself stays silent.
+ */
+export function setLastInput(
+  modalityId: string,
+  input: PersistedLastInput,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const normalised: PersistedLastInput = {
+      durationMinutes: input.durationMinutes,
+      strengthSkill: input.strengthSkill,
+      wodFormat: input.wodFormat,
+      ...(input.focusMovement && input.focusMovement.trim() !== ""
+        ? { focusMovement: input.focusMovement }
+        : {}),
+      ...(input.considerations && input.considerations.trim() !== ""
+        ? { considerations: input.considerations }
+        : {}),
+    };
+    const json = JSON.stringify(normalised);
+    localStorage.setItem(lastInputKey(modalityId), json);
+    dispatchStorage(lastInputKey(modalityId), json);
+  } catch (err) {
+    if (isQuotaError(err)) {
+      console.warn(
+        `[pd:last-input-${modalityId}] quota exceeded, draft not persisted`,
+      );
+    } else {
+      console.warn(
+        `[pd:last-input-${modalityId}] failed to persist:`,
+        err,
+      );
+    }
+  }
+}
+
+/**
+ * Returns the raw JSON string stored under `pd:last-input-{modalityId}`,
+ * or `""` if the key is missing. Exposed for `useSyncExternalStore`
+ * consumers that want the raw string as their snapshot (see AGENTS.md
+ * storage-reactivo pattern).
+ */
+export function getLastInputRaw(modalityId: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(lastInputKey(modalityId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Subscribe to changes in `pd:last-input-{modalityId}`. The synthetic
+ * `storage` event from same-tab writes is filtered by key, so consumers
+ * only re-render when *their* modality's draft changes.
+ */
+export function subscribeToLastInput(
+  modalityId: string,
+  callback: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const key = lastInputKey(modalityId);
+  const handler = (e: StorageEvent) => {
+    if (e.key === key) callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+/**
+ * Reads every `pd:last-input-*` key from localStorage and returns them as
+ * a `{ [modalityId]: PersistedLastInput }` map. Corrupt entries are
+ * dropped silently (consistent with the rest of the read path).
+ *
+ * Powers the backup export on `/settings`. Cross-tab safe: reads whatever
+ * is in the localStorage snapshot at call time.
+ */
+export function getAllLastInputs(): Record<string, PersistedLastInput> {
+  if (typeof window === "undefined") return {};
+  const result: Record<string, PersistedLastInput> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(LAST_INPUT_PREFIX)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw) as PersistedLastInput;
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          typeof parsed.strengthSkill === "string"
+        ) {
+          const modalityId = key.slice(LAST_INPUT_PREFIX.length);
+          result[modalityId] = parsed;
+        }
+      } catch {
+        // Skip corrupt entry
+      }
+    }
+  } catch (err) {
+    console.warn("[pd:last-input-*] failed to enumerate:", err);
+  }
+  return result;
+}
+
+// ─── Backup / restore / clear-all (settings page) ────────────────────────────
+
+/**
+ * Current backup format version. Bump this when the shape changes in a
+ * way that older imports can't be safely upgraded automatically. Forward
+ * compatibility (importing a backup with a higher `version`) is allowed
+ * with a warning toast — backward compatibility is the responsibility of
+ * the importer to handle missing fields.
+ */
+export const BACKUP_VERSION = 1;
+
+export type BackupShape = {
+  exportedAt: string;
+  version: number;
+  data: {
+    sessions: SavedSession[];
+    calculatorState: CalculatorState;
+    calculatorRecords: SavedWeightRecord[];
+    lastInputs: Record<string, PersistedLastInput>;
+  };
+};
+
+/**
+ * Aggregates every persisted `pd:*` key into a single backup object ready
+ * to be JSON-serialised. Read-only — does not mutate storage.
+ */
+export function exportAllData(): BackupShape {
+  return {
+    exportedAt: new Date().toISOString(),
+    version: BACKUP_VERSION,
+    data: {
+      sessions: getSessions(),
+      calculatorState: getCalculatorState(),
+      calculatorRecords: getRecords(),
+      lastInputs: getAllLastInputs(),
+    },
+  };
+}
+
+export type ImportResult = {
+  ok: boolean;
+  imported: string[];
+  errors: string[];
+};
+
+/**
+ * Writes every key from a backup into localStorage. Returns a structured
+ * result so the UI can surface partial failures (some keys imported, some
+ * not) instead of just "ok / not ok".
+ *
+ * Quota errors are caught and reported per-key. Other IO errors are also
+ * captured. The function never throws — the caller decides how to react.
+ */
+export function importAllData(shape: BackupShape): ImportResult {
+  const imported: string[] = [];
+  const errors: string[] = [];
+
+  // Sessions
+  try {
+    setSessions(shape.data.sessions);
+    imported.push("sessions");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "sessions: almacenamiento lleno"
+        : `sessions: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Calculator state
+  try {
+    setCalculatorState(shape.data.calculatorState);
+    imported.push("calculatorState");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "calculatorState: almacenamiento lleno"
+        : `calculatorState: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Calculator records
+  try {
+    setRecordsRaw(shape.data.calculatorRecords);
+    imported.push("calculatorRecords");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "calculatorRecords: almacenamiento lleno"
+        : `calculatorRecords: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
+  // Last inputs (per modality)
+  for (const [modalityId, input] of Object.entries(shape.data.lastInputs)) {
+    try {
+      setLastInput(modalityId, input);
+      imported.push(`lastInput:${modalityId}`);
+    } catch (err) {
+      errors.push(
+        isQuotaError(err)
+          ? `lastInput:${modalityId}: almacenamiento lleno`
+          : `lastInput:${modalityId}: ${err instanceof Error ? err.message : "error"}`,
+      );
+    }
+  }
+
+  return { ok: errors.length === 0, imported, errors };
+}
+
+/**
+ * Internal write helper for `importAllData`. Sets the records key directly
+ * with a synthetic `storage` event so same-tab consumers refresh.
+ */
+function setRecordsRaw(records: SavedWeightRecord[]): void {
+  const json = JSON.stringify(records);
+  localStorage.setItem(RECORDS_KEY, json);
+  dispatchStorage(RECORDS_KEY, json);
+}
+
+/**
+ * Removes every `pd:*` key from localStorage. Fires a synthetic `storage`
+ * event for each removed key so same-tab consumers re-read their snapshot
+ * (e.g. `/classes` banner disappears, `/sessions` shows empty state).
+ *
+ * Use only after the user has confirmed intent. The `/settings` page wraps
+ * this with a double `window.confirm`.
+ */
+export function clearAllData(): void {
+  if (typeof window === "undefined") return;
+  const keysToRemove: string[] = [];
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("pd:")) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+      // Dispatch with empty value — the StorageEvent convention for "deleted"
+      dispatchStorage(key, "");
+    }
+  } catch (err) {
+    console.warn("[pd:*] failed to clear:", err);
+  }
 }
 

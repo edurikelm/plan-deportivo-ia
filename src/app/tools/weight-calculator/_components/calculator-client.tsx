@@ -575,7 +575,7 @@ export function CalculatorClient() {
           {fotoState.kind === "analyzing" ? (
             <time
               dateTime={`PT${fotoMinutes}M${fotoSeconds}S`}
-              className="flex items-center gap-2 font-mono tabular-nums"
+              className="flex items-center gap-2 numeric"
             >
               <span
                 aria-hidden
@@ -584,11 +584,11 @@ export function CalculatorClient() {
                 {stripLabel}
               </span>
               <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(fotoMinutes).padStart(2, "0")}
               </span>
               <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(fotoSeconds).padStart(2, "0")}
               </span>
             </time>
@@ -656,7 +656,7 @@ export function CalculatorClient() {
                   key={u}
                   onClick={() => setDisplayUnit(u)}
                   aria-pressed={displayUnit === u}
-                  className={`font-mono tabular-nums text-xs px-2.5 py-1 transition-colors ${
+                  className={`numeric text-xs px-2.5 py-1 transition-colors ${
                     displayUnit === u
                       ? "bg-signal text-signal-foreground"
                       : "bg-transparent text-mute hover:text-bone"
@@ -678,7 +678,7 @@ export function CalculatorClient() {
                 <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
                   Barra
                 </p>
-                <span className="font-mono tabular-nums text-[0.6875rem] text-mute">
+                <span className="numeric text-[0.6875rem] text-mute">
                   {formatWeightForDisplay(barKg, displayUnit)} {displayUnit}
                 </span>
               </div>
@@ -688,7 +688,7 @@ export function CalculatorClient() {
                     key={w}
                     onClick={() => selectBar(w)}
                     aria-pressed={!showCustomBar && barKg === w}
-                    className={`font-mono tabular-nums text-sm px-3 py-1.5 rounded-sm border transition-colors ${
+                    className={`numeric text-sm px-3 py-1.5 rounded-sm border transition-colors ${
                       !showCustomBar && barKg === w
                         ? "bg-signal text-signal-foreground border-signal"
                         : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
@@ -700,7 +700,7 @@ export function CalculatorClient() {
                 <button
                   onClick={() => setShowCustomBar((v) => !v)}
                   aria-pressed={showCustomBar}
-                  className={`font-mono tabular-nums text-sm px-3 py-1.5 rounded-sm border transition-colors ${
+                  className={`numeric text-sm px-3 py-1.5 rounded-sm border transition-colors ${
                     showCustomBar
                       ? "bg-signal text-signal-foreground border-signal"
                       : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
@@ -727,7 +727,7 @@ export function CalculatorClient() {
                     onKeyDown={(e) => e.key === "Enter" && handleCustomBarBlur()}
                     placeholder="kg"
                     aria-label="Peso de barra personalizado en kg"
-                    className="font-mono tabular-nums text-sm w-24 px-3 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+                    className="numeric text-sm w-24 px-3 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
                   />
                 )}
               </div>
@@ -757,7 +757,7 @@ export function CalculatorClient() {
                   className="font-sans text-sm text-mute leading-relaxed py-3 px-4 border border-dashed border-hairline rounded-sm"
                 >
                   Sumá discos. La barra sola ya carga{" "}
-                  <span className="font-mono tabular-nums text-bone">
+                  <span className="numeric text-bone">
                     {barKg} kg
                   </span>
                   .
@@ -794,7 +794,7 @@ export function CalculatorClient() {
                           }
                         }}
                         aria-label={`Peso del disco en ${disc.unit}`}
-                        className="font-mono tabular-nums text-sm w-20 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+                        className="numeric text-sm w-20 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
                       />
 
                       {/* Unit toggle */}
@@ -804,7 +804,7 @@ export function CalculatorClient() {
                             key={u}
                             onClick={() => updateDisc(disc.id, "unit", u)}
                             aria-pressed={disc.unit === u}
-                            className={`font-mono tabular-nums text-xs px-2 py-1.5 transition-colors ${
+                            className={`numeric text-xs px-2 py-1.5 transition-colors ${
                               disc.unit === u
                                 ? "bg-signal text-signal-foreground"
                                 : "bg-transparent text-mute hover:text-bone"
@@ -830,7 +830,7 @@ export function CalculatorClient() {
                           )
                         }
                         aria-label="Cantidad de discos por lado"
-                        className="font-mono tabular-nums text-sm w-14 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+                        className="numeric text-sm w-14 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
                       />
 
                       <span
@@ -919,7 +919,7 @@ export function CalculatorClient() {
               <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
                 Total · {discs.length === 0 ? "solo barra" : `${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} de disco`}
               </p>
-              <p className="font-mono tabular-nums text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
+              <p className="numeric-display text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
                 <span className="whitespace-nowrap">
                   {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
                     ? "—"
@@ -938,7 +938,7 @@ export function CalculatorClient() {
                   </span>
                 )}
               </p>
-              <p className="font-mono tabular-nums text-[0.8125rem] text-mute leading-snug mt-2">
+              <p className="numeric text-[0.8125rem] text-mute leading-snug mt-2">
                 {discs.length === 0 ? `${barKg}kg` : breakdownLine}
               </p>
             </div>
@@ -1104,7 +1104,7 @@ function BarVisualization({ barKg, discs, unit }: BarVisualizationProps) {
         <span className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
           Barra
         </span>
-        <span className="font-mono tabular-nums text-sm text-bone">
+        <span className="numeric text-sm text-bone">
           {formatWeightForDisplay(barKg, unit)} {unit}
         </span>
         <span aria-hidden className="text-mute/40">·</span>
@@ -1210,7 +1210,7 @@ function DiscLabel({
         ? Math.round(weight * KG_PER_LB * 10) / 10
         : Math.round((weight / KG_PER_LB) * 10) / 10;
   return (
-    <span className="font-mono tabular-nums text-[0.6875rem] leading-none text-canvas font-semibold tracking-tight whitespace-nowrap">
+    <span className="numeric text-[0.6875rem] leading-none text-canvas font-semibold tracking-tight whitespace-nowrap">
       {displayValue}
       {count > 1 && widthPx >= 56 && <span className="ml-0.5">×{count}</span>}
     </span>
@@ -1344,7 +1344,7 @@ function FotoTab({
                 </span>
               </p>
             </div>
-            <span className="font-mono tabular-nums text-[0.6875rem] text-mute tracking-[0.04em] shrink-0">
+            <span className="numeric-label text-[0.6875rem] text-mute shrink-0">
               {model}
             </span>
           </header>
@@ -1375,7 +1375,7 @@ function FotoTab({
                 {breakdown.discs.map((d, i) => (
                   <li
                     key={i}
-                    className="flex items-center gap-3 font-mono tabular-nums text-sm text-bone px-2 py-1.5 border border-hairline rounded-sm bg-canvas/40"
+                    className="flex items-center gap-3 numeric text-sm text-bone px-2 py-1.5 border border-hairline rounded-sm bg-canvas/40"
                   >
                     <span
                       aria-hidden
