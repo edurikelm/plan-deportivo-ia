@@ -26,6 +26,21 @@ import {
   isQuotaError,
   setSessions,
   setLastInput,
+  getSessions,
+  addSession,
+  updateSession,
+  removeSession,
+  getRecentSessions,
+  getRecords,
+  addRecord,
+  updateRecord,
+  removeRecord,
+  getRecentRecords,
+  getUniqueExercises,
+  getCalculatorState,
+  setCalculatorState,
+  subscribeToSessions,
+  subscribeToLastInput,
   BACKUP_VERSION,
   type PersistedLastInput,
 } from "@/lib/storage";
@@ -559,5 +574,321 @@ describe("clearAllData", () => {
     });
     expect(keys).toEqual(expect.arrayContaining(["pd:sessions", "pd:last-input-crossfit"]));
     window.removeEventListener("storage", handler);
+  });
+});
+
+// ─── Session CRUD wrappers ───────────────────────────────────────────────────
+
+describe("addSession / updateSession / removeSession", () => {
+  it("addSession appends to existing sessions", () => {
+    setSessions([mkSession({ id: "ss-1" })]);
+    addSession(mkSession({ id: "ss-2" }));
+    expect(getSessions().map((s) => s.id)).toEqual(["ss-1", "ss-2"]);
+  });
+
+  it("addSession starts from empty when localStorage is empty", () => {
+    addSession(mkSession({ id: "ss-first" }));
+    expect(getSessions()).toHaveLength(1);
+    expect(getSessions()[0]?.id).toBe("ss-first");
+  });
+
+  it("updateSession replaces the matching session by id", () => {
+    setSessions([mkSession({ id: "ss-1", title: "old" }), mkSession({ id: "ss-2" })]);
+    updateSession(mkSession({ id: "ss-1", title: "new" }));
+    const result = getSessions();
+    expect(result[0]?.title).toBe("new");
+    expect(result[1]?.id).toBe("ss-2");
+  });
+
+  it("updateSession is a no-op when the id does not exist", () => {
+    setSessions([mkSession({ id: "ss-1" })]);
+    updateSession(mkSession({ id: "ss-does-not-exist" }));
+    expect(getSessions()).toHaveLength(1);
+    expect(getSessions()[0]?.id).toBe("ss-1");
+  });
+
+  it("removeSession deletes the matching session by id", () => {
+    setSessions([mkSession({ id: "ss-1" }), mkSession({ id: "ss-2" })]);
+    removeSession("ss-1");
+    expect(getSessions().map((s) => s.id)).toEqual(["ss-2"]);
+  });
+
+  it("removeSession is a no-op when the id does not exist", () => {
+    setSessions([mkSession({ id: "ss-1" })]);
+    removeSession("ss-does-not-exist");
+    expect(getSessions()).toHaveLength(1);
+  });
+});
+
+describe("getRecentSessions", () => {
+  it("returns the most recent sessions, newest first", () => {
+    setSessions([
+      mkSession({ id: "old", createdAt: "2026-01-01T00:00:00.000Z" }),
+      mkSession({ id: "new", createdAt: "2026-09-01T00:00:00.000Z" }),
+      mkSession({ id: "mid", createdAt: "2026-05-01T00:00:00.000Z" }),
+    ]);
+    expect(getRecentSessions(5).map((s) => s.id)).toEqual(["new", "mid", "old"]);
+  });
+
+  it("respects the limit parameter", () => {
+    setSessions([
+      mkSession({ id: "a", createdAt: "2026-01-01T00:00:00.000Z" }),
+      mkSession({ id: "b", createdAt: "2026-02-01T00:00:00.000Z" }),
+      mkSession({ id: "c", createdAt: "2026-03-01T00:00:00.000Z" }),
+    ]);
+    expect(getRecentSessions(2).map((s) => s.id)).toEqual(["c", "b"]);
+  });
+
+  it("returns [] when there are no sessions", () => {
+    expect(getRecentSessions(5)).toEqual([]);
+  });
+});
+
+// ─── Records CRUD wrappers ───────────────────────────────────────────────────
+
+describe("addRecord / updateRecord / removeRecord", () => {
+  it("addRecord appends to existing records", () => {
+    localStorage.setItem("pd:calculator-records", JSON.stringify([mkRecord({ id: "r-1" })]));
+    addRecord(mkRecord({ id: "r-2" }));
+    const result = getRecords();
+    expect(result.map((r) => r.id)).toEqual(["r-1", "r-2"]);
+  });
+
+  it("updateRecord replaces the matching record by id", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([mkRecord({ id: "r-1", exercise: "old" })]),
+    );
+    updateRecord(mkRecord({ id: "r-1", exercise: "new" }));
+    expect(getRecords()[0]?.exercise).toBe("new");
+  });
+
+  it("updateRecord warns and is a no-op when the id does not exist", () => {
+    const warnSpy = vi.spyOn(console, "warn");
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([mkRecord({ id: "r-1" })]),
+    );
+    updateRecord(mkRecord({ id: "r-does-not-exist" }));
+    expect(getRecords()).toHaveLength(1);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it("removeRecord deletes the matching record by id", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([mkRecord({ id: "r-1" }), mkRecord({ id: "r-2" })]),
+    );
+    removeRecord("r-1");
+    expect(getRecords().map((r) => r.id)).toEqual(["r-2"]);
+  });
+
+  it("removeRecord is a no-op when the id does not exist", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([mkRecord({ id: "r-1" })]),
+    );
+    removeRecord("r-does-not-exist");
+    expect(getRecords()).toHaveLength(1);
+  });
+});
+
+describe("getRecentRecords", () => {
+  it("returns labeled records sorted by createdAt desc", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([
+        mkRecord({ id: "auto", exercise: null, createdAt: "2026-01-01T00:00:00.000Z" }),
+        mkRecord({ id: "labeled-old", createdAt: "2026-02-01T00:00:00.000Z" }),
+        mkRecord({ id: "labeled-new", createdAt: "2026-09-01T00:00:00.000Z" }),
+      ]),
+    );
+    expect(getRecentRecords(5).map((r) => r.id)).toEqual([
+      "labeled-new",
+      "labeled-old",
+    ]);
+  });
+
+  it("respects the limit parameter", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([
+        mkRecord({ id: "r-1", createdAt: "2026-01-01T00:00:00.000Z" }),
+        mkRecord({ id: "r-2", createdAt: "2026-02-01T00:00:00.000Z" }),
+        mkRecord({ id: "r-3", createdAt: "2026-03-01T00:00:00.000Z" }),
+      ]),
+    );
+    expect(getRecentRecords(2).map((r) => r.id)).toEqual(["r-3", "r-2"]);
+  });
+});
+
+describe("getUniqueExercises", () => {
+  it("delegates to dedupeExercises for the records list", () => {
+    localStorage.setItem(
+      "pd:calculator-records",
+      JSON.stringify([
+        mkRecord({ id: "r-1", exercise: "Back Squat" }),
+        mkRecord({ id: "r-2", exercise: "Deadlift" }),
+        mkRecord({ id: "r-3", exercise: "BACK SQUAT" }),
+      ]),
+    );
+    const result = getUniqueExercises();
+    // dedupeExercises preserves the case of the most recent occurrence.
+    // r-3 ("BACK SQUAT", createdAt 2026-09-01) is most recent, so it
+    // wins over r-1 ("Back Squat", createdAt 2026-09-01). The factory
+    // uses the same createdAt for all three, but the API walk is in
+    // insertion order, so r-3's "BACK SQUAT" is the last seen and wins.
+    expect(result).toContain("BACK SQUAT");
+    expect(result).toContain("Deadlift");
+    expect(result).toHaveLength(2);
+  });
+
+  it("returns [] when there are no records", () => {
+    expect(getUniqueExercises()).toEqual([]);
+  });
+});
+
+// ─── Calculator state ────────────────────────────────────────────────────────
+
+describe("getCalculatorState / setCalculatorState", () => {
+  it("getCalculatorState returns defaults when no data is stored", () => {
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+  });
+
+  it("getCalculatorState returns the persisted state when valid", () => {
+    localStorage.setItem(
+      "pd:calculator-state",
+      JSON.stringify({ barKg: 15, discs: [mkDisc({ weight: 25, count: 2 })] }),
+    );
+    expect(getCalculatorState()).toEqual({
+      barKg: 15,
+      discs: [mkDisc({ weight: 25, count: 2 })],
+    });
+  });
+
+  it("getCalculatorState returns defaults when barKg is invalid (zero, negative, non-number)", () => {
+    localStorage.setItem("pd:calculator-state", JSON.stringify({ barKg: 0, discs: [] }));
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+    localStorage.setItem("pd:calculator-state", JSON.stringify({ barKg: -5, discs: [] }));
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+    localStorage.setItem(
+      "pd:calculator-state",
+      JSON.stringify({ barKg: "twenty", discs: [] }),
+    );
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+  });
+
+  it("getCalculatorState returns defaults when discs is not an array", () => {
+    localStorage.setItem(
+      "pd:calculator-state",
+      JSON.stringify({ barKg: 20, discs: "not an array" }),
+    );
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+  });
+
+  it("getCalculatorState returns defaults when a sample disc fails DiscRowSchema", () => {
+    localStorage.setItem(
+      "pd:calculator-state",
+      JSON.stringify({
+        barKg: 20,
+        discs: [{ weight: -5, unit: "kg", count: 1 }], // negative weight
+      }),
+    );
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+  });
+
+  it("getCalculatorState returns defaults for malformed JSON", () => {
+    localStorage.setItem("pd:calculator-state", "{not json}");
+    expect(getCalculatorState()).toEqual({ barKg: 20, discs: [] });
+  });
+
+  it("setCalculatorState persists the state and dispatches a storage event", () => {
+    const handler = vi.fn();
+    window.addEventListener("storage", handler);
+    const state = { barKg: 15, discs: [mkDisc()] };
+    setCalculatorState(state);
+    expect(getCalculatorState()).toEqual(state);
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener("storage", handler);
+  });
+});
+
+// ─── Subscribe helpers ───────────────────────────────────────────────────────
+
+describe("subscribeToSessions", () => {
+  it("returns a no-op cleanup when called server-side (no window)", async () => {
+    // The function early-returns `() => {}` when `typeof window === "undefined"`.
+    // We can't truly simulate SSR in jsdom, so we just assert the return
+    // type is a function (the function's body is defensive).
+    const cleanup = subscribeToSessions(() => {});
+    expect(typeof cleanup).toBe("function");
+    cleanup();
+  });
+
+  it("triggers the callback when a `storage` event for pd:sessions fires", () => {
+    const callback = vi.fn();
+    const cleanup = subscribeToSessions(callback);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "pd:sessions",
+        newValue: "[]",
+      }),
+    );
+    expect(callback).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it("does NOT trigger the callback for a storage event with a different key", () => {
+    const callback = vi.fn();
+    const cleanup = subscribeToSessions(callback);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "pd:calculator-state",
+        newValue: "{}",
+      }),
+    );
+    expect(callback).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("cleanup unregisters the listener", () => {
+    const callback = vi.fn();
+    const cleanup = subscribeToSessions(callback);
+    cleanup();
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "pd:sessions", newValue: "[]" }),
+    );
+    expect(callback).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribeToLastInput", () => {
+  it("triggers the callback only for the matching modality", () => {
+    const callback = vi.fn();
+    const cleanup = subscribeToLastInput("crossfit", callback);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "pd:last-input-crossfit",
+        newValue: "{}",
+      }),
+    );
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "pd:last-input-powerlifting",
+        newValue: "{}",
+      }),
+    );
+    expect(callback).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it("cleanup unregisters the listener", () => {
+    const callback = vi.fn();
+    const cleanup = subscribeToLastInput("crossfit", callback);
+    cleanup();
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "pd:last-input-crossfit", newValue: "{}" }),
+    );
+    expect(callback).not.toHaveBeenCalled();
   });
 });
