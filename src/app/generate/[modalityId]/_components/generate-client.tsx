@@ -13,10 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   addSession,
+  getLastInput,
   getRecentSessionsFromRaw,
   getSessions,
   getSessionsRaw,
   removeSession,
+  setLastInput,
   setSessions,
   subscribeToSessions,
   updateSession,
@@ -75,6 +77,56 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   });
 
   const DURATION_OPTIONS = ["45", "60", "75", "90"] as const;
+
+  // Form draft autosave + hydration (issue 0023).
+  //
+  // On mount, if a draft is persisted under `pd:last-input-{modalityId}`,
+  // hydrate the form from it. After hydration, persist on every change
+  // with a 500ms debounce. Empty optional fields are normalised to
+  // `undefined` inside `setLastInput` before write.
+  //
+  // We gate the persistence effect behind `formHydrated` so the initial
+  // (or hydrated) values aren't re-written on first mount — only the
+  // user's subsequent edits get persisted.
+  const [formHydrated, setFormHydrated] = useState(false);
+  useEffect(() => {
+    if (!hydrated) return;
+    const saved = getLastInput(modalityId);
+    if (saved) {
+      setDurationMinutes(saved.durationMinutes);
+      setStrengthSkill(saved.strengthSkill);
+      setWodFormat(saved.wodFormat);
+      setFocusMovement(saved.focusMovement ?? "");
+      setConsiderations(saved.considerations ?? "");
+    }
+    setFormHydrated(true);
+  }, [hydrated, modalityId]);
+
+  useEffect(() => {
+    if (!formHydrated) return;
+    const timer = setTimeout(() => {
+      setLastInput(modalityId, {
+        durationMinutes: durationMinutes as
+          | "45"
+          | "60"
+          | "75"
+          | "90",
+        strengthSkill,
+        wodFormat,
+        focusMovement,
+        considerations,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    formHydrated,
+    modalityId,
+    durationMinutes,
+    strengthSkill,
+    wodFormat,
+    focusMovement,
+    considerations,
+  ]);
 
   // Generation state
   const [busy, setBusy] = useState(false);
