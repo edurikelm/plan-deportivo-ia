@@ -10,7 +10,7 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 
 | Bump | Cuándo | Ejemplos |
 |---|---|---|
-| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1, 0.2.2, 0.2.3, 0.2.4, 0.2.5 |
+| **PATCH** (`0.1.x`) | Invisible al usuario: bugfix, refactor, **umbrella de infra** (tests, deps, tooling) | umbrella 0026 (test infra) → 0.2.1, 0.2.2, 0.2.3, 0.2.4, 0.2.5, 0.2.6 |
 | **MINOR** (`0.x.0`) | **Umbrella con feature visible al usuario** (nueva página, nuevo flujo, cambio de UX) | umbrella 0018 (UI/UX polish) → 0.2.0 |
 | **MAJOR** (`x.0.0`) | Breaking o rediseño grande | cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0 |
 
@@ -18,6 +18,44 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 > Se ajusta porque las umbrellas de infra (tests, tooling) no entregan features visibles al usuario
 > y bumpear minor por ellas engaña al consumidor del versionado. Las umbrellas de infra van como
 > PATCH acumulado; las umbrellas con feature visible van como MINOR.
+
+## [0.2.6] - 2026-09-02
+
+Cierre del **umbrella 0026**: CI institucionalizado. 196 tests pasando, coverage gate activo, workflow de GitHub Actions ejecuta `lint + build + test:coverage` en cada PR y push a `master`.
+
+### Added
+
+- **`.github/workflows/ci.yml`** creado con los 4 steps obligatorios:
+  1. `npm ci --legacy-peer-deps` — install reproducible desde el lockfile.
+  2. `npm run lint` — eslint con la config actual.
+  3. `npm run build` — Next.js production build (detecta errores de TypeScript).
+  4. `npm run test:coverage` — vitest con coverage gate (V8 provider).
+- **`actions/setup-node@v4`** con `node-version: "20"` y `cache: "npm"` (basado en `package-lock.json`).
+- **`concurrency.cancel-in-progress: true`** para ahorrar CI minutes cuando un dev pushea varios commits al mismo PR.
+- **`actions/upload-artifact@v4`** para `coverage/` (HTML report), retention 14 días, con `if: always()` para subir incluso si los tests fallan (debugging post-fail).
+- **Triggers**: `push` a `master`, `pull_request` contra `master`, `workflow_dispatch` (manual).
+
+### Notes
+
+- **El umbrella 0026 está formalmente cerrado.** 8 milestones completados: 0027 setup, 0028 history, 0029 sessions+clipboard, 0030 storage, 0031 components, 0032 coverage gate, 0033 threshold raise, 0034 CI institucionalization. **0 → 196 tests en un solo umbrella, todos verdes.**
+- **`--legacy-peer-deps` es necesario** porque el proyecto tiene conflictos de peer deps no resueltos entre Next.js 16 + React 19 + Vite/Vitest 3.x. Documentado en el post-mortem de 0032. Se remueve cuando se pague la deuda (migración a Node 22 + npm 10+, ADR futuro).
+- **Branch protection NO está en el código del repo** — se configura en la UI de GitHub (Settings → Branches → "Require status check: CI"). Sin esto, el CI es solo advisory; el owner del repo debe activarlo manualmente.
+- **Sigue pendiente** mockear el SDK de `openai` para subir el coverage al objetivo 70/90 del spec 0033, y tests E2E con Playwright para los _components grandes excluidos. Ambos son tickets dedicados fuera del umbrella 0026.
+- **Tests acumulados: 196 en 10 archivos.** 0 errores, 2 warnings preexistentes de lint.
+- Storage schema **no cambió**. Prompt IA **no cambió**. UX **no cambió**.
+
+### Resumen de los milestones del umbrella 0026
+
+| Milestone | Ticket | Tests | Acumulado | Cierre |
+|---|---|---|---|---|
+| M1 setup | 0027 | 0 | 0 | 0.2.1 |
+| M2 history | 0028 | 30 | 30 | 0.2.1 |
+| M3 sessions+clipboard | 0029 | 19 | 49 | 0.2.1 |
+| M4 storage parsers | 0030 | 41 | 90 | 0.2.2 |
+| M5 components | 0031 | 15 | 105 | 0.2.3 |
+| M6 coverage gate | 0032 | 31 | 136 | 0.2.4 |
+| M7 threshold raise | 0033 | 60 | 196 | 0.2.5 |
+| M8 CI | 0034 | 0 (infra) | 196 | 0.2.6 |
 
 ## [0.2.5] - 2026-09-02
 
