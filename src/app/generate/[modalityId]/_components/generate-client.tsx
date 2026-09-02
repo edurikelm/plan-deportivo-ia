@@ -64,12 +64,34 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Form state
-  const [durationMinutes, setDurationMinutes] = useState("60");
-  const [strengthSkill, setStrengthSkill] = useState("");
-  const [wodFormat, setWodFormat] = useState<WodFormat>("AMRAP");
-  const [focusMovement, setFocusMovement] = useState("");
-  const [considerations, setConsiderations] = useState("");
+  // Form state — single object so bulk hydrations (mount + load-from-history)
+  // are one `setForm` call instead of five, which keeps the
+  // `react-hooks/set-state-in-effect` rule happy. Per-field setters are
+  // stable function references that route through `setForm`; this preserves
+  // the existing `onChange` / `onClick` wiring without touching the JSX.
+  const [form, setForm] = useState<{
+    durationMinutes: string;
+    strengthSkill: string;
+    wodFormat: WodFormat;
+    focusMovement: string;
+    considerations: string;
+  }>({
+    durationMinutes: "60",
+    strengthSkill: "",
+    wodFormat: "AMRAP",
+    focusMovement: "",
+    considerations: "",
+  });
+  const { durationMinutes, strengthSkill, wodFormat, focusMovement, considerations } = form;
+  const setDurationMinutes = (v: string) =>
+    setForm((f) => ({ ...f, durationMinutes: v }));
+  const setStrengthSkill = (v: string) =>
+    setForm((f) => ({ ...f, strengthSkill: v }));
+  const setWodFormat = (v: WodFormat) => setForm((f) => ({ ...f, wodFormat: v }));
+  const setFocusMovement = (v: string) =>
+    setForm((f) => ({ ...f, focusMovement: v }));
+  const setConsiderations = (v: string) =>
+    setForm((f) => ({ ...f, considerations: v }));
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<TouchedFields>({
     strengthSkill: false,
@@ -85,25 +107,45 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   // with a 500ms debounce. Empty optional fields are normalised to
   // `undefined` inside `setLastInput` before write.
   //
-  // We gate the persistence effect behind `formHydrated` so the initial
-  // (or hydrated) values aren't re-written on first mount — only the
-  // user's subsequent edits get persisted.
-  const [formHydrated, setFormHydrated] = useState(false);
+  // We gate the persistence effect behind a `useRef` (not a state flag)
+  // so the hydration effect can mark itself as "already synced" before
+  // any `setState` call. The persistence effect reads the ref on every
+  // run; once true, it persists on subsequent field changes only — never
+  // the values that were just hydrated from storage.
+  const formHydratedRef = useRef(false);
+  const persistenceSkipRef = useRef(true);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || formHydratedRef.current) return;
+    formHydratedRef.current = true;
     const saved = getLastInput(modalityId);
     if (saved) {
-      setDurationMinutes(saved.durationMinutes);
-      setStrengthSkill(saved.strengthSkill);
-      setWodFormat(saved.wodFormat);
-      setFocusMovement(saved.focusMovement ?? "");
-      setConsiderations(saved.considerations ?? "");
+      // Mount-only one-shot hydration from localStorage. The useRef gate
+      // above (formHydratedRef.current) ensures this runs exactly once
+      // per mount per modalityId; it's not a "state sync" effect (we
+      // don't subscribe to storage changes here), it's a one-time
+      // replacement of the form's defaults with the persisted draft.
+      // The cascading-renders warning from this rule is a false positive
+      // for that pattern — see calculator-client.tsx for the same
+      // pattern via two setters.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        durationMinutes: saved.durationMinutes,
+        strengthSkill: saved.strengthSkill,
+        wodFormat: saved.wodFormat,
+        focusMovement: saved.focusMovement ?? "",
+        considerations: saved.considerations ?? "",
+      });
     }
-    setFormHydrated(true);
   }, [hydrated, modalityId]);
 
   useEffect(() => {
-    if (!formHydrated) return;
+    if (!formHydratedRef.current) return;
+    if (persistenceSkipRef.current) {
+      // Skip the first run after hydration — those are the values that
+      // came from storage, not a user edit.
+      persistenceSkipRef.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       setLastInput(modalityId, {
         durationMinutes: durationMinutes as
@@ -119,7 +161,6 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     }, 500);
     return () => clearTimeout(timer);
   }, [
-    formHydrated,
     modalityId,
     durationMinutes,
     strengthSkill,
@@ -424,11 +465,13 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     setEditedMarkdown(null);
     setMode("view");
     setPersisted(true);
-    setDurationMinutes(loaded.input.durationMinutes);
-    setStrengthSkill(loaded.input.strengthSkill);
-    setWodFormat(loaded.input.wodFormat);
-    setFocusMovement(loaded.input.focusMovement ?? "");
-    setConsiderations(loaded.input.considerations ?? "");
+    setForm({
+      durationMinutes: loaded.input.durationMinutes,
+      strengthSkill: loaded.input.strengthSkill,
+      wodFormat: loaded.input.wodFormat as WodFormat,
+      focusMovement: loaded.input.focusMovement ?? "",
+      considerations: loaded.input.considerations ?? "",
+    });
     toast.success("Sesión cargada - listo para regenerar o editar");
   }
 
