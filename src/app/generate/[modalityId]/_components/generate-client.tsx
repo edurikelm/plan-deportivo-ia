@@ -590,7 +590,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
           {busy ? (
             <time
               dateTime={`PT${minutes}M${seconds}S`}
-              className="flex items-center gap-2 font-mono tabular-nums"
+              className="flex items-center gap-2 numeric"
             >
               <span
                 aria-hidden
@@ -599,11 +599,11 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                 Generando
               </span>
               <span aria-hidden className="w-px h-4 bg-signal-foreground/40 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(minutes).padStart(2, "0")}
               </span>
               <span aria-hidden className="w-px h-3 bg-signal-foreground/45 self-center" />
-              <span className="text-2xl leading-none tabular-nums tracking-tight">
+              <span className="numeric-display text-xl leading-none tracking-tight">
                 {String(seconds).padStart(2, "0")}
               </span>
             </time>
@@ -611,7 +611,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             <Button
               onClick={handleRegenerate}
               disabled={busy || !validate()}
-              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="numeric text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Regenerar
             </Button>
@@ -620,7 +620,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               type="submit"
               form="generate-form"
               disabled={busy}
-              className="font-mono tabular text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="numeric text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground rounded-md px-3 h-8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Generar
             </Button>
@@ -647,7 +647,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
                 Brief de la sesión
               </p>
-              <p className="font-mono tabular-nums text-[0.6875rem] text-mute">
+              <p className="numeric text-[0.6875rem] text-mute">
                 4 fases · {durationMinutes} min
               </p>
             </div>
@@ -674,7 +674,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     aria-checked={selected}
                     onClick={() => setDurationMinutes(m)}
                     disabled={busy}
-                    className={`font-mono tabular-nums text-sm px-3.5 py-1.5 rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`numeric text-sm px-3.5 py-1.5 rounded-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected
                         ? "bg-signal text-signal-foreground border-signal"
                         : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
@@ -756,7 +756,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               <SelectTrigger
                 id="wodFormat"
                 aria-invalid={Boolean(touched.wodFormat && errors.wodFormat)}
-                className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
+                className="h-10 px-3.5 bg-transparent border border-hairline rounded-sm text-bone numeric focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 data-[placeholder]:text-mute"
               >
                 <SelectValue placeholder="Seleccionar formato…" />
               </SelectTrigger>
@@ -844,7 +844,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     {result.title}
                   </h2>
                 </div>
-                <div className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute text-right shrink-0">
+                <div className="numeric-label text-[0.6875rem] text-mute text-right shrink-0">
                   <div className="text-bone">
                     {new Date(result.createdAt).toLocaleDateString("es-AR", {
                       day: "2-digit",
@@ -865,7 +865,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                     <CrossFitPlanView plan={result.structured} />
                   ) : (
                     <div
-                      className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:font-display prose-h3:not-italic prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none prose-li:my-1 prose-p:my-3 prose-headings:mt-5 prose-headings:mb-2"
+                      className="prose prose-invert prose-chalk prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:not-italic"
                     >
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {editedMarkdown ?? result.markdown}
@@ -891,7 +891,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleCopy}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Copiar"
                     >
                       <Copy className="size-3.5" />
@@ -901,7 +901,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleExport}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Exportar como markdown"
                     >
                       <Download className="size-3.5" />
@@ -914,7 +914,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         setMode("edit");
                       }}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Editar"
                     >
                       <Pencil className="size-3.5" />
@@ -945,7 +945,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         Vista previa
                       </p>
                       <div className="min-h-96 w-full border border-hairline rounded-sm px-4 py-3 overflow-auto">
-                        <div className="prose prose-invert max-w-prose prose-headings:font-display prose-headings:italic prose-headings:tracking-tight prose-strong:text-bone prose-code:font-mono prose-code:text-bone prose-code:before:content-none prose-code:after:content-none">
+                        <div className="prose prose-invert prose-chalk">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {editedMarkdown ?? result.markdown}
                           </ReactMarkdown>
@@ -983,7 +983,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleCopy}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Copiar"
                     >
                       <Copy className="size-3.5" />
@@ -993,7 +993,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       variant="ghost"
                       onClick={handleExport}
                       disabled={busy}
-                      className="font-mono tabular text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
+                      className="numeric text-xs text-mute hover:text-bone hover:bg-muted rounded-sm h-8 px-2.5 gap-1.5"
                       aria-label="Exportar como markdown"
                     >
                       <Download className="size-3.5" />
@@ -1031,7 +1031,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         <h3 className="font-display italic font-semibold text-sm leading-none tracking-tight text-bone truncate">
                           {s.title}
                         </h3>
-                        <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
+                        <span className="numeric-label text-[0.6875rem] text-mute shrink-0">
                           {new Date(s.createdAt).toLocaleDateString("es-AR", {
                             day: "2-digit",
                             month: "2-digit",
@@ -1043,7 +1043,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                       <footer className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <button
                           onClick={() => handleLoadFromHistory(s)}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Cargar sesión: ${s.title}`}
                         >
                           <FolderOpen className="size-3" />
@@ -1058,7 +1058,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                               toast.error("No se pudo copiar");
                             }
                           }}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Copiar sesión: ${s.title}`}
                         >
                           <Copy className="size-3" />
@@ -1072,7 +1072,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                             );
                             downloadAsMarkdown(filename, s.markdown);
                           }}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Exportar sesión: ${s.title}`}
                         >
                           <Download className="size-3" />
@@ -1080,7 +1080,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
                         </button>
                         <button
                           onClick={() => handleDeleteFromHistory(s)}
-                          className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone transition-colors flex items-center gap-1"
+                          className="numeric-label text-[0.6875rem] text-mute hover:text-bone transition-colors flex items-center gap-1"
                           aria-label={`Eliminar sesión: ${s.title}`}
                         >
                           <Trash2 className="size-3" />
