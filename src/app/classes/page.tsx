@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MODALITIES } from "@/lib/modalities/modalities";
 import { Button } from "@/components/ui/button";
+import { RecentActivityBanner } from "./_components/recent-activity-banner";
 
 export const metadata: Metadata = {
   title: "Catálogo — Plan Deportivo IA",
@@ -18,6 +19,7 @@ export default function ClassesPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-5 md:px-8 py-10 space-y-8">
+        <RecentActivityBanner />
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute mb-3">
             Modalidades del sistema
