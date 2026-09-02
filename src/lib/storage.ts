@@ -387,3 +387,142 @@ export function getRecentRecords(limit = 5): SavedWeightRecord[] {
   );
 }
 
+// ─── Per-modality last input (form draft autosave) ──────────────────────────
+
+const LAST_INPUT_PREFIX = "pd:last-input-";
+
+/**
+ * Shape of the persisted form draft. Mirrors `CrossFitSessionInput` but
+ * accepts `"Aleatorio"` as a valid `wodFormat` because that's an option the
+ * form exposes to the coach (the system resolves it to a concrete format
+ * before calling the LLM, so it never reaches `crossfit-schemas.ts`).
+ *
+ * Optional fields are persisted as `undefined` (omitted from the JSON)
+ * rather than empty strings — this matches the Zod schema's `.optional()`
+ * and keeps the read path defensive.
+ */
+export type PersistedLastInput = {
+  durationMinutes: "45" | "60" | "75" | "90";
+  strengthSkill: string;
+  wodFormat:
+    | "AMRAP"
+    | "EMOM"
+    | "For Time"
+    | "Tabata"
+    | "Intervalos"
+    | "Aleatorio";
+  focusMovement?: string;
+  considerations?: string;
+};
+
+function lastInputKey(modalityId: string): string {
+  return `${LAST_INPUT_PREFIX}${modalityId}`;
+}
+
+/**
+ * Returns the persisted form draft for the given modality, or `null` if no
+ * draft has been saved yet (or the persisted JSON is corrupt). The optional
+ * fields (`focusMovement`, `considerations`) are read back as `undefined`
+ * when omitted, matching how they were written.
+ */
+export function getLastInput(modalityId: string): PersistedLastInput | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(lastInputKey(modalityId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedLastInput;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof parsed.strengthSkill !== "string"
+    ) {
+      console.warn(
+        `[pd:last-input-${modalityId}] corrupt data, discarding:`,
+        parsed,
+      );
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn(`[pd:last-input-${modalityId}] failed to parse:`, err);
+    return null;
+  }
+}
+
+/**
+ * Persists the form draft for the given modality. Empties are normalised
+ * to `undefined` before write (the schema treats them as optional). Uses
+ * `dispatchStorage` so same-tab consumers re-read the snapshot.
+ *
+ * Quota errors are logged and swallowed (consistent with the calculator
+ * autosave path) — the coach keeps working in-memory and we surface the
+ * failure through the same "Almacenamiento lleno" toast when triggered
+ * from a user action. The autosave path itself stays silent.
+ */
+export function setLastInput(
+  modalityId: string,
+  input: PersistedLastInput,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const normalised: PersistedLastInput = {
+      durationMinutes: input.durationMinutes,
+      strengthSkill: input.strengthSkill,
+      wodFormat: input.wodFormat,
+      ...(input.focusMovement && input.focusMovement.trim() !== ""
+        ? { focusMovement: input.focusMovement }
+        : {}),
+      ...(input.considerations && input.considerations.trim() !== ""
+        ? { considerations: input.considerations }
+        : {}),
+    };
+    const json = JSON.stringify(normalised);
+    localStorage.setItem(lastInputKey(modalityId), json);
+    dispatchStorage(lastInputKey(modalityId), json);
+  } catch (err) {
+    if (isQuotaError(err)) {
+      console.warn(
+        `[pd:last-input-${modalityId}] quota exceeded, draft not persisted`,
+      );
+    } else {
+      console.warn(
+        `[pd:last-input-${modalityId}] failed to persist:`,
+        err,
+      );
+    }
+  }
+}
+
+/**
+ * Returns the raw JSON string stored under `pd:last-input-{modalityId}`,
+ * or `""` if the key is missing. Exposed for `useSyncExternalStore`
+ * consumers that want the raw string as their snapshot (see AGENTS.md
+ * storage-reactivo pattern).
+ */
+export function getLastInputRaw(modalityId: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(lastInputKey(modalityId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Subscribe to changes in `pd:last-input-{modalityId}`. The synthetic
+ * `storage` event from same-tab writes is filtered by key, so consumers
+ * only re-render when *their* modality's draft changes.
+ */
+export function subscribeToLastInput(
+  modalityId: string,
+  callback: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const key = lastInputKey(modalityId);
+  const handler = (e: StorageEvent) => {
+    if (e.key === key) callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
