@@ -72,6 +72,23 @@ Si hay duda entre 1 y 2 → escalar hacia arriba.
 - Build: `npm run build`.
 - Visual: abrir dev server y capturar.
 
+## Versionado
+
+La app usa **SemVer** (`MAJOR.MINOR.PATCH`) en `package.json`. Política vigente desde `0.2.0`.
+
+- **PATCH** (invisible al usuario): bugfix, refactor interno, chore, tests, docs.
+- **MINOR** (feature visible o cambio de UX): cada umbrella cerrada, nueva página, nuevo flujo.
+- **MAJOR** (breaking): cambio incompatible en storage schema, cambio en contrato del prompt IA, rediseño de modelo de datos, lanzamiento 1.0.
+
+**Proceso al cerrar una umbrella:**
+
+1. Bumpear `package.json` según el criterio de arriba.
+2. Agregar entrada nueva al top de `CHANGELOG.md` (formato [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)).
+3. Commit con mensaje `chore(release): bump to vX.Y.Z`.
+4. Tag git: `git tag vX.Y.Z`.
+
+La versión es visible en `/settings` → "Acerca de" (lee `pkg.version` directamente desde `package.json`).
+
 ## Artefactos de verificación
 
 Screenshots, traces, snapshots y archivos generados durante verificación **no son parte del producto**. Después de usarlos, eliminarlos del worktree o moverlos a `C:\Users\eduri\AppData\Local\Temp\opencode` (tmp pre-aprobado). Nunca dejarlos en la raíz ni en `src/`.
