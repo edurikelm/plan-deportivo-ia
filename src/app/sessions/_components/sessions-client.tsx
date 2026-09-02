@@ -211,7 +211,7 @@ export function SessionsClient() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute">
+          <span className="numeric-label text-[0.6875rem] text-mute">
             {allSessions.length} en total
           </span>
         </div>
@@ -236,7 +236,7 @@ export function SessionsClient() {
               >
                 <SelectTrigger
                   aria-label="Ordenar por"
-                  className="h-10 px-3.5 sm:w-48 bg-transparent border border-hairline rounded-sm text-bone font-mono tabular-nums focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30"
+                  className="h-10 px-3.5 sm:w-48 bg-transparent border border-hairline rounded-sm text-bone numeric focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30"
                 >
                   <SelectValue>
                     {SORT_OPTIONS.find((o) => o.value === sort)?.label}
@@ -321,7 +321,7 @@ function FilterChip({
       role="radio"
       aria-checked={selected}
       onClick={onClick}
-      className={`font-mono tabular-nums text-xs px-3 py-1 rounded-sm border transition-colors ${
+      className={`numeric text-xs px-3 py-1 rounded-sm border transition-colors ${
         selected
           ? "bg-signal text-signal-foreground border-signal"
           : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
@@ -352,7 +352,7 @@ function SessionListItem({
         <h2 className="font-display italic font-semibold text-base leading-none tracking-tight text-bone truncate">
           {session.title || "(sin título)"}
         </h2>
-        <span className="font-mono tabular-nums text-[0.6875rem] tracking-[0.04em] text-mute shrink-0">
+        <span className="numeric-label text-[0.6875rem] text-mute shrink-0">
           {date.toLocaleDateString("es-AR", {
             day: "2-digit",
             month: "2-digit",
@@ -409,7 +409,7 @@ function ListAction({
     <button
       onClick={onClick}
       aria-label={ariaLabel}
-      className="font-mono tabular text-[0.6875rem] tracking-[0.04em] text-mute hover:text-bone hover:bg-muted transition-colors flex items-center gap-1 min-h-11 sm:min-h-7 px-2 sm:px-1 -mx-1 rounded-sm"
+      className="numeric-label text-[0.6875rem] text-mute hover:text-bone hover:bg-muted transition-colors flex items-center gap-1 min-h-11 sm:min-h-7 px-2 sm:px-1 -mx-1 rounded-sm"
     >
       {icon}
       {label}
