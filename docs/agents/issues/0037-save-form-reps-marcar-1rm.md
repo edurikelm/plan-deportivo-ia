@@ -1,6 +1,7 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-09-03
 parent: 0035-exercise-analysis-feature
 depends_on: [0036]
 blocks: []
@@ -111,3 +112,52 @@ Smoke manual en `/tools/weight-calculator`:
 - El Foto tab. Está desactivado en el issue 0040 y no captura reps. Cuando se reactive, se reconsidera.
 - Edición de un registro ya guardado (cambiar `reps` o `isOneRepMax` post-guardado). Eso vive en la vista de análisis (issue 0039).
 - RPE, RM calculation por fórmula distinta a Epley (issue 0036 lo deja hardcodeado).
+
+## Post-mortem (closed 2026-09-03)
+
+### Lo que se hizo
+
+1 commit de impl:
+
+- `0037-impl-...` — helper `suggestRepsForExercise` (TDD estricto) + form actualizado + tests de render (4).
+
+### Acceptance criteria — todo verde
+
+- [x] `src/lib/calculator/suggest-reps.ts` exporta `suggestRepsForExercise` con 8 tests passing (TDD estricto: tests escritos primero, corridos, fallaron por módulo inexistente, impl los hizo pasar).
+- [x] `save-record-form.tsx` extendido con input `Repeticiones` (number, default desde sugerencia) y checkbox `Marcar como 1RM`. Render test cubre los 4 escenarios: render inicial, submit con reps=0, submit con reps=5, submit con flag checked.
+- [x] El botón `Guardar` queda disabled si `reps < 1` o `exercise.trim() === ""`. Validación numérica: `Number.isFinite(reps) && reps >= 1`.
+- [x] El toast de éxito sigue apareciendo al guardar; el form se cierra vía `onSaved`.
+- [x] `npm test` verde, 12 tests nuevos (8 de suggest-reps + 4 de save-record-form), 234/234 totales.
+- [x] `npm run build` verde, 11/11 static pages, typecheck OK.
+- [x] `npm run lint` verde (0 errors; las 2 warnings son preexistentes en `coverage/block-navigation.js` y `scripts/verify-vision.ts`).
+- [x] El payload persistido incluye `reps: Math.trunc(reps)` (defensivo contra decimales) y `isOneRepMax` boolean.
+
+### Decisiones deliberadas (no triviales)
+
+1. **El form lee records vía `getRecords()` en su `useState` lazy initializer, no vía prop ni subscription.** El spec original planteaba pasar `records` como prop, pero eso requiere que el padre (calculator-client) mantenga una subscription a `pd:calculator-records` sólo para alimentar el form — overhead para un form que vive pocos segundos en pantalla. La alternativa: el form hace `getRecords()` una vez al montar. Tradeoff: si el coach abre el form, en otra tab alguien guarda un record, el form no se entera. Pero el form no necesita enterarse: la sugerencia es un one-shot, no un live binding. Si el coach quiere la sugerencia fresca, cierra y reabre el form. Esta decisión reduce el scope del issue a 2 archivos cambiados (form + helper), sin tocar el calculator-client ni el storage layer.
+
+2. **`Math.trunc(reps)` al persistir.** El input es `type="number" step={1}` pero el coach podría usar flechas o scroll para llegar a 1.5. Truncar al guardar evita que `reps: 1.5` llegue al storage (lo cual Zod rechazaría después). Es defensivo y barato.
+
+3. **`aria-invalid` en el input de reps** cuando `repsValid === false`. Da feedback al screen reader sobre el estado de validación sin necesidad de un mensaje inline. El `aria-[invalid=true]:border-signal` de Tailwind lo visualmente marca con el color de acento.
+
+4. **El default de reps se aplica una sola vez, en el lazy initializer de `useState`.** Decisión explícita: si el coach tipea un ejercicio distinto en el form, las reps NO se sobreescriben. Razón: el coach podría estar en medio de tipear "Press militar" y el form ya prellenó 5 reps basándose en "Press banca"; si re-sugiriera en cada keystroke, el campo reps bailaría. El precio: el coach tiene que borrar y re-tipear si quiere que el form le sugiera reps para un nuevo ejercicio. Aceptable porque el form es corto-lived y la sugerencia es un nice-to-have.
+
+5. **`onChange` del reps input maneja string vacío como `NaN`.** HTML number inputs nativos pueden tener `value === ""` cuando el coach borra el campo. Convertir a `NaN` mantiene el invariant de `reps` como `number` (no `string | number`), y `repsValid = Number.isFinite(reps) && reps >= 1` lo detecta correctamente para deshabilitar el submit.
+
+6. **No agregué `useId` para `flagId` por accidente — sí lo hice.** La id se usa para el `htmlFor` del label del checkbox. Es requerido para a11y (asociar label con input).
+
+### Patrones nuevos establecidos
+
+- **`getRecords()` desde componentes short-lived** (form, modal, drawer): aceptable para one-shot reads. NO usar en componentes long-lived (la subscription `useSyncExternalStore` es la opción correcta cuando los datos deben estar vivos). La distinción es "el dato es relevante sólo mientras el componente está montado" vs "el dato es relevante siempre que el componente está montado".
+
+- **TDD helper puro + render test del componente, ambos en el mismo issue:** confirma el seam correcto (helper testeable aislado + form testeable como integration). Si el helper fuera más complejo, lo valdría separar en un issue propio. Acá el helper es 5 líneas, así que el overhead de un issue separado no se justifica.
+
+### Out of scope / no tocado
+
+- **No agregué `subscribeToRecords` a `lib/storage.ts`:** el form no necesita reactividad, así que el helper no se justifica. Si en el futuro (0039, vista de análisis) hace falta, lo agregamos.
+- **El `defaultExercise` no propaga un `defaultReps`:** el form computa su propia sugerencia al montar, leyendo `getRecords()` directamente. Mantiene la API del form simple (no prop nuevo).
+- **El Foto tab no se tocó.** Sigue intacto, sigue desactivándose en 0040.
+
+### Hallazgo no relacionado (de paso)
+
+El test del form inicialmente falló con "Found multiple elements with the placeholder text of: Ej. Back Squat" — `cleanup()` no estaba siendo llamada explícitamente. Agregué `afterEach(cleanup)` después de ver el patrón en `recent-activity-banner.test.tsx`. Documenté el rationale inline en el test. La regla operativa: cuando un test file tiene múltiples `render()` en el mismo file (incluso en distintos `it()`), `cleanup()` debe ser explícito en `afterEach` como safety net. La auto-cleanup de `@testing-library/react` debería cubrirlo, pero en este proyecto la convención es explícita.

@@ -29,3 +29,4 @@ export {
   PRILEPIN_TABLE,
   type PrilepinRow,
 } from "./one-rm";
+export { suggestRepsForExercise } from "./suggest-reps";

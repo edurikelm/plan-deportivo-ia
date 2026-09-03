@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import {
   computeTotals,
   normalizeExerciseName,
+  suggestRepsForExercise,
   type DiscRow,
   type SavedWeightRecord,
 } from "@/lib/calculator";
-import { addRecord, getUniqueExercises, isQuotaError } from "@/lib/storage";
+import { addRecord, getRecords, getUniqueExercises, isQuotaError } from "@/lib/storage";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,13 @@ interface SaveRecordFormProps {
  * to close it. This component is responsible for input validation, the
  * autocomplete datalist, the submit lifecycle, and the keyboard handling
  * (auto-focus on mount, Escape to cancel).
+ *
+ * Since issue 0037 the form also collects `reps` and an optional
+ * `isOneRepMax` flag. `reps` is initialized from
+ * `suggestRepsForExercise(records, exercise)` at mount, so the coach
+ * gets a sensible default based on their previous sets of the same
+ * exercise. The default is a one-shot value at form open — the coach
+ * can override it freely.
  */
 export function SaveRecordForm({
   currentState,
@@ -42,9 +50,21 @@ export function SaveRecordForm({
   defaultExercise,
 }: SaveRecordFormProps) {
   const [exercise, setExercise] = useState(defaultExercise ?? "");
+  // Initial reps comes from the suggestion helper. The lazy initializer
+  // reads `pd:calculator-records` once at mount; the coach's manual edits
+  // to the reps field after mount are not overridden. If no records exist
+  // or none match the default exercise, the suggestion defaults to 1.
+  const [reps, setReps] = useState(() => {
+    const records = getRecords();
+    return suggestRepsForExercise(records, defaultExercise ?? "");
+  });
+  const [isOneRepMax, setIsOneRepMax] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const repsInputRef = useRef<HTMLInputElement | null>(null);
   const listId = useId();
+  const repsId = useId();
+  const flagId = useId();
   // Suggestions are computed once when the form opens and don't
   // auto-refresh: the autocomplete is a hint, not a live picker. The coach
   // reopens the form to see new suggestions. The form is short-lived
@@ -52,9 +72,9 @@ export function SaveRecordForm({
   // suggestion list at most shows a missed recent save.
   const suggestions = useMemo(() => getUniqueExercises(), []);
 
-  // ── Auto-focus on mount. The input must receive focus before the coach
-  //    can interact with the field. Use a microtask delay so the focus
-  //    lands after React commits the form into the DOM.
+  // ── Auto-focus on mount. The exercise input must receive focus before
+  //    the coach can interact with the form. Use a microtask delay so the
+  //    focus lands after React commits the form into the DOM.
   useEffect(() => {
     const id = setTimeout(() => inputRef.current?.focus(), 0);
     return () => clearTimeout(id);
@@ -79,6 +99,7 @@ export function SaveRecordForm({
     if (submitting) return;
     const name = normalizeExerciseName(exercise);
     if (name === "") return; // Guard: button is disabled, but defensive.
+    if (!Number.isFinite(reps) || reps < 1) return; // Same.
 
     setSubmitting(true);
     try {
@@ -93,12 +114,8 @@ export function SaveRecordForm({
         totalLb: totals.totalLb,
         breakdownLine: totals.breakdownLine,
         source: "manual",
-        // Issue 0036: `reps` is required on manual records. The form
-        // doesn't collect it yet (that's 0037), so we hardcode `1` —
-        // which is the same default the new input will use. Once 0037
-        // ships, the form will pass the coach-entered value here.
-        reps: 1,
-        isOneRepMax: false,
+        reps: Math.trunc(reps),
+        isOneRepMax,
       };
       addRecord(record);
       toast.success("Carga guardada");
@@ -118,7 +135,8 @@ export function SaveRecordForm({
   }
 
   const trimmed = normalizeExerciseName(exercise);
-  const canSubmit = trimmed !== "" && !submitting;
+  const repsValid = Number.isFinite(reps) && reps >= 1;
+  const canSubmit = trimmed !== "" && repsValid && !submitting;
 
   return (
     <form
@@ -154,6 +172,46 @@ export function SaveRecordForm({
           <option key={name} value={name} />
         ))}
       </datalist>
+
+      <div className="flex items-center gap-3">
+        <label
+          htmlFor={repsId}
+          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0"
+        >
+          Reps
+        </label>
+        <input
+          ref={repsInputRef}
+          id={repsId}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          step={1}
+          required
+          value={Number.isFinite(reps) ? reps : ""}
+          onChange={(e) => {
+            const next = e.target.value === "" ? NaN : Number(e.target.value);
+            setReps(next);
+          }}
+          aria-label="Repeticiones"
+          aria-invalid={!repsValid}
+          className="font-mono text-sm w-20 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none aria-[invalid=true]:border-signal"
+        />
+        <label
+          htmlFor={flagId}
+          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+        >
+          <input
+            id={flagId}
+            type="checkbox"
+            checked={isOneRepMax}
+            onChange={(e) => setIsOneRepMax(e.target.checked)}
+            aria-label="Marcar como 1RM"
+            className="size-3.5 accent-signal"
+          />
+          Marcar como 1RM
+        </label>
+      </div>
 
       <div className="flex items-center gap-2 justify-end pt-1">
         <Button
