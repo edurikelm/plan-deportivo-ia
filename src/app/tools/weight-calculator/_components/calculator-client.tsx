@@ -744,7 +744,7 @@ export function CalculatorClient() {
                     variant="ghost"
                     onClick={handleLimpiar}
                     aria-label="Borrar toda la carga"
-                    className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-destructive hover:bg-muted rounded-sm h-7 px-2.5 gap-1.5"
+                    className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-destructive rounded-md h-7 px-2.5 gap-1.5"
                   >
                     <Trash2 className="size-3.5" aria-hidden />
                     Limpiar

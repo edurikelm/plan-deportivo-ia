@@ -239,7 +239,22 @@ Sistema squarish: el radio por defecto es `0.25rem` (4px) heredado del `--radius
   ```
   Disabled (cuando el botón depende de estado del form, ej. status strip de `/generate`): agregar `disabled:opacity-50 disabled:cursor-not-allowed`. El signal-outline NO está permitido como CTA primaria de página — eso sigue siendo primary puro. Si una superficie tiene más de 2 signal-outlines visibles en estado pasivo simultáneo, reconsiderar (señal empieza a competir consigo misma).
   - **Gotcha de implementación:** el `<Button>` de `@/components/ui/button.tsx` aplica utilities del `variant` antes que el `className` custom. Pasar `variant="ghost"` con un signal-outline **pisa el `hover:bg-signal`** porque `ghost` trae `hover:bg-muted hover:text-foreground` que gana por orden de generación de Tailwind. Para signal-outline, **omitir `variant` por completo** (cae al default, sin utilities de hover que pisen). Mismo cuidado si en el futuro se agregan utilities de hover a otros variants.
+  - **Signal Outline (compact)** *— variante contextual para la status strip de `/generate`*: misma cadena base que signal-outline, pero con `h-8 px-3` (en vez de `px-4`) y agregando `disabled:opacity-50 disabled:cursor-not-allowed`. El padding menor responde a la densidad de la status strip; el `disabled:` porque el botón depende del estado del form (`validate()`). La función narrativa es la misma: pasivo = "promise" del estado activo, hover = confirmación. Cuando el LLM está generando, **la status strip entera muta a `bg-signal` con cronómetro** (el único momento del sistema donde el signal toma toda la franja). Tokens:
+    ```
+    rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em]
+    border border-signal bg-transparent text-signal
+    hover:bg-signal hover:text-signal-foreground
+    transition-colors h-8 px-3 inline-flex items-center gap-1.5
+    disabled:opacity-50 disabled:cursor-not-allowed
+    ```
 - **Destructive**: fill `bg-destructive/10`, texto destructive. Para confirmación de borrado de Clase.
+
+### Links (navigation)
+
+Links de escape — llevan a una vista completa o a otro recurso, no son CTAs de acción sobre el estado actual. El sistema distingue dos voces:
+
+- **Link secundario (default):** `text-mute hover:text-bone hover:underline transition-colors`. Es la voz de "hay más, pero no te distraigo". Ejemplos: `Configuración →` al pie de `/classes`, `→ Ver historial completo` cuando ese link NO es la única navegación visible del contexto.
+- **Link signal (excepción contextual, NO propagable):** `text-signal hover:underline` en pasivo. **Sólo se permite** cuando el link es la única navegación de escape desde un panel/agrupación que no tiene otra acción de salida visible, y donde el panel vive dentro de una superficie más amplia que no contiene otros signals en el mismo viewport. Caso único actual: `Ver historial completo →` en el footer del mini-panel "Saved Records" dentro de `/tools/weight-calculator`. Si en el futuro se agrega otro link signal en un contexto diferente, **se evalúa caso por caso**; el default sigue siendo link secundario. La excepción NO escala a un patrón: sigue siendo un waiver puntual documentado acá, no un quinto botón del sistema.
 
 ### Chips (de ejercicios)
 
