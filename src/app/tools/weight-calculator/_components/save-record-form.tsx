@@ -165,7 +165,7 @@ export function SaveRecordForm({
           type="submit"
           disabled={!canSubmit}
           aria-label="Guardar carga"
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <BookmarkPlus className="size-3.5" aria-hidden />
           Guardar
