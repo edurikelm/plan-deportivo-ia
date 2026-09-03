@@ -1,6 +1,6 @@
 ---
 label: feature
-status: open
+status: closed
 parent: null
 depends_on: []
 blocks:

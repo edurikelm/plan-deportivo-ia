@@ -1,6 +1,6 @@
 ---
 label: feature
-status: open
+status: closed
 parent: 0035-exercise-analysis-feature
 depends_on: [0036, 0038]
 blocks: []
