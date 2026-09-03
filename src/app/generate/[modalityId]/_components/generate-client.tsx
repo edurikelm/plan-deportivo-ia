@@ -1100,10 +1100,16 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </article>
           )}
 
-          {/* Mini-historial: row 1, col 2 (sticky en lg+) */}
+          {/* Mini-historial: row 1, col 2 (sticky en lg+).
+              El wrapper es el grid item real: se estira a la altura del form
+              (row 1) y recorta el section con `overflow-clip` para que el
+              sticky no se filtre sobre el result card al scrollear.
+              `overflow-clip` (no `hidden`) no crea scroll container, así que
+              el `position: sticky` del hijo sigue tomando al viewport como referencia. */}
+          <div className="lg:col-start-2 lg:row-start-1 lg:overflow-clip">
           <section
             aria-label="Sesiones recientes"
-            className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto"
+            className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-auto"
           >
             <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-3">
               Sesiones recientes
@@ -1188,6 +1194,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               </ul>
             )}
           </section>
+          </div>
         </div>
       </main>
     </div>

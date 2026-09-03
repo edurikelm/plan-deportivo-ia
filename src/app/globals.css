@@ -299,6 +299,11 @@
         sits on.
      Both are short (≤ 220ms), no bounce, interruptible — re-keying or
      rapid weight edits simply retarget the tween. */
+  /* impeccable-disable layout-transition: width IS the feature here —
+     each disc block is sized in kg, and tweening width IS the "filling
+     experience" the coach sees when a plate gets heavier. There is no
+     transform equivalent for "change how wide this block is in proportion
+     to its mass." The 200ms tween is interruptible and re-targetable. */
   .disc-block {
     transition: width 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
     will-change: width;

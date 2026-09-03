@@ -226,10 +226,19 @@ Sistema squarish: el radio por defecto es `0.25rem` (4px) heredado del `--radius
 
 ### Buttons
 
-- **Shape:** `4px` radius, contenido `0.875rem 1.25rem`, h-default `2.5rem`.
+- **Shape:** `4px` radius, contenido `0.875rem 1.25rem`, h-default `2rem` (`h-8`). El contenido se reduce a `text-[0.6875rem]` y tracking `+0.10em` en los CTAs uppercase (primary, secondary, signal-outline).
 - **Primary (signal)**: relleno verde señal, texto canvas. Hover: oscurece a `signal-deep`. Disabled: opacity-50 sin cambio de color.
 - **Secondary (outline)**: sin fill, hairline border, texto bone. Hover: surface bump a `bg-secondary`.
 - **Ghost (text-only)**: sin fill ni border visibles. Hover: surface bump a `bg-muted`. Es la elección para las acciones inline en la chalk card (`Copiar`, `Exportar`, `Regenerar`, `Editar`).
+- **Signal Outline** *(cuarto patrón intencional, no drift)*: outline con `text-signal` + `border-signal` en pasivo, que muta a `bg-signal text-signal-foreground` en hover. Es el "outline-que-se-activa" — pensado para **CTAs item-level** dentro de listas y cards (ej. `Generar sesión` por modalidad en `/classes`, `Reabrir` en el banner de actividad reciente, `Abrir calculadora` en el catálogo de herramientas). No compite con la CTA primaria real de la status strip: el signal en pasivo funciona como **promise** del estado activo que el hover confirma. Acepta la excepción a la Single-Voice Rule porque vive en una superficie donde esa voz ya está acotada al item, no a la página entera. Tokens exactos:
+  ```
+  rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em]
+  border border-signal bg-transparent text-signal
+  hover:bg-signal hover:text-signal-foreground
+  transition-colors h-8 px-4 inline-flex items-center gap-1.5
+  ```
+  Disabled (cuando el botón depende de estado del form, ej. status strip de `/generate`): agregar `disabled:opacity-50 disabled:cursor-not-allowed`. El signal-outline NO está permitido como CTA primaria de página — eso sigue siendo primary puro. Si una superficie tiene más de 2 signal-outlines visibles en estado pasivo simultáneo, reconsiderar (señal empieza a competir consigo misma).
+  - **Gotcha de implementación:** el `<Button>` de `@/components/ui/button.tsx` aplica utilities del `variant` antes que el `className` custom. Pasar `variant="ghost"` con un signal-outline **pisa el `hover:bg-signal`** porque `ghost` trae `hover:bg-muted hover:text-foreground` que gana por orden de generación de Tailwind. Para signal-outline, **omitir `variant` por completo** (cae al default, sin utilities de hover que pisen). Mismo cuidado si en el futuro se agregan utilities de hover a otros variants.
 - **Destructive**: fill `bg-destructive/10`, texto destructive. Para confirmación de borrado de Clase.
 
 ### Chips (de ejercicios)
