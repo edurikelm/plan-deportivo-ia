@@ -70,7 +70,7 @@ export function RecentActivityBanner() {
               href={`/generate/${latest.modalityId}?fromSession=${latest.id}`}
             />
           }
-          className="numeric text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-8 px-3 inline-flex items-center gap-1.5 rounded-md"
+          className="rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-8 px-4 inline-flex items-center gap-1.5"
         >
           Reabrir
           <span aria-hidden="true">→</span>
