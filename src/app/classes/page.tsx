@@ -96,6 +96,28 @@ export default function ClassesPage() {
                 </footer>
               </article>
             </li>
+            <li className="bg-panel">
+              <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
+                <header className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline">
+                  <h2 className="font-display italic font-semibold text-2xl leading-none tracking-tight text-bone">
+                    Ejercicios guardados
+                  </h2>
+                </header>
+                <p className="mt-4 text-sm text-mute leading-relaxed">
+                  Visualizá progresión, 1RM estimado y tabla de RM por ejercicio.
+                </p>
+                <footer className="mt-4 pt-3 border-t border-hairline flex items-center justify-end">
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="/tools/weight-calculator/history" />}
+                    className="rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-8 px-4 inline-flex items-center gap-1.5"
+                  >
+                    Ver ejercicios
+                    <span aria-hidden="true">→</span>
+                  </Button>
+                </footer>
+              </article>
+            </li>
           </ul>
         </div>
 

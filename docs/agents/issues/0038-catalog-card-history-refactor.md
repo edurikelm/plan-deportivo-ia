@@ -1,6 +1,7 @@
 ---
 label: feature
-status: open
+status: closed
+closed_at: 2026-09-03
 parent: 0035-exercise-analysis-feature
 depends_on: [0036]
 blocks:
@@ -164,3 +165,60 @@ Smoke manual:
 - Preservar la lista plana vieja en otra ruta (grill R4 Q13 decidió eliminarla).
 - Foto tab (issue 0040, independiente).
 - Tests E2E con Playwright (el proyecto no usa E2E todavía, solo Vitest + render tests).
+
+## Post-mortem (closed 2026-09-03)
+
+### Lo que se hizo
+
+1 commit de impl:
+
+- `0038-impl-...` — helper `aggregate.ts` (TDD estricto) + reescritura de `history-page-client.tsx` + nueva card en `/classes` + 4 render tests.
+
+### Acceptance criteria — todo verde
+
+- [x] `src/lib/calculator/aggregate.ts` exporta `aggregateByExercise` y `getRecordsForExercise` con 11 tests passing (TDD estricto: tests escritos primero, run failed por módulo inexistente, impl los hizo pasar).
+- [x] `src/app/classes/page.tsx` tiene la card `Ejercicios guardados` que apunta a `/tools/weight-calculator/history`.
+- [x] `src/app/tools/weight-calculator/_components/history-page-client.tsx` reescrito: lista de ejercicios con click → `/exercise/[encodeURIComponent(name)]`. 4 render tests passing.
+- [x] Search/sort opcionales marcados como "v1.1 candidate" en comment inline.
+- [x] La lista plana vieja (búsqueda/filtros/source/sort/acciones por fila) **se eliminó** completamente del archivo (no se comentó, se borró).
+- [x] `npm test` verde, 15 tests nuevos (11 de aggregate + 4 de history-page-client), 249/249 totales.
+- [x] `npm run build` verde, 11/11 static pages, typecheck OK.
+- [x] `npm run lint` verde (0 errors; las 2 warnings son preexistentes).
+
+### Decisiones deliberadas (no triviales)
+
+1. **El Map de groups se tipa con el narrowed type, no el wide type.** El type guard `(r): r is SavedWeightRecord & { exercise: string }` se pierde si el Map tiene `Array<SavedWeightRecord>` como value type. Solución: tipar el Map con `Array<SavedWeightRecord & { exercise: string }>`. Cero `as` cast, typecheck verde, contrato de la función claro.
+
+2. **`<button>` para cada card, no `<Link>`.** La navegación va por `router.push` con `encodeURIComponent(name)`. Pro: la URL queda deep-linkable (el usuario puede copiar/pegar la URL de un ejercicio específico). Con: requiere el router en el componente, no funciona en SSR-only contexts. Aceptable porque la página es client-only (`"use client"`).
+
+3. **El header de la página apunta a `/classes` (catálogo), no a `/tools/weight-calculator` (calculadora).** Razón: con el refactor, `/history` ya no es "el historial de la calculadora" — es "la lista de ejercicios guardados", un destino hermano de la calculadora. El back button refleja esa nueva jerarquía.
+
+4. **`within(list).getAllByRole("button")` en los tests, no `screen.getAllByRole`.** El header de la página tiene otros elementos interactivos (futuros). Scoping al list es el contrato robusto: "estos son los botones de la lista de ejercicios". Si en el futuro sumamos un header con search, no rompe el test.
+
+5. **`findByRole` (con `await`) en lugar de `getByRole` para esperar post-hidratación.** El componente tiene un placeholder pre-hidratación (server snapshot) que se reemplaza con la lista post-hidratación (client snapshot). El `useSyncExternalStore` actualiza en una microtask, no síncronamente. `findByRole` espera el re-render. Alternativa más invasiva: mockear `useHydrated` para forzar `true` en tests; descartada porque agrega un mock por test file.
+
+6. **El header count dice "N ejercicios" no "N registros".** Es la nueva semántica: la página lista ejercicios, no records. La distinción es parte del cambio de modelo mental que el grill R2 Q5 fijó.
+
+7. **`formatAbsolute` se preserva del archivo viejo.** El formatter locale-free (sin `Intl.*`) era útil y estable; reusarlo en lugar de reemplazarlo por `toLocaleString` evita inconsistencias cross-browser/CI.
+
+### Patrones nuevos establecidos
+
+- **Scope tests con `within(element)`, no `screen.getAllByRole`.** Cuando un componente tiene varias "regiones" de UI (header, list, footer), los tests deben hacer queries dentro de la región que están probando. Hace los tests robustos a cambios futuros en otras regiones.
+
+- **`aggregate.ts` como home del per-exercise logic.** Junto con `one-rm.ts` (1RM math) y `suggest-reps.ts` (UI suggestion), `aggregate.ts` cubre el tercer eje de la feature: la agregación. Cada archivo = un tema cohesivo. Si en el futuro se suman más helpers de agregación, van al mismo lugar.
+
+- **El back button refleja la jerarquía del producto, no la de la implementación.** Cuando el back lleva de `/history` a `/tools/weight-calculator` (calculadora), es porque en la cabeza del usuario `/history` es "el historial de la calculadora". Con el refactor, `/history` es otra tool, no un sub-destino de la calculadora. El back button sigue esa nueva semántica.
+
+### Out of scope / no tocado
+
+- **Búsqueda y sort** en la lista de ejercicios. Documentado en comment como "v1.1 candidate". Con ~5-10 ejercicios por usuario, no es crítico. Si la lista crece a 50+, lo agregamos.
+
+- **El Foto tab** no se tocó. Sigue desactivándose en 0040 (independiente).
+
+- **La vista de análisis en sí** (issue 0039). El click navega a `/exercise/[name]` pero la ruta todavía no existe. El usuario va a 404 hasta que 0039 la cree. Documentado en el manual end-to-end test del spec.
+
+- **Tests E2E** con Playwright. El proyecto solo usa Vitest + render tests. Si en algún momento se quiere automatizar el smoke manual, se suma Playwright.
+
+### Hallazgo no relacionado (de paso)
+
+Mientras corría `npm run build`, el typecheck falló con `Type 'string | null' is not assignable to type 'string'`. El issue: el Map tenía `Array<SavedWeightRecord>` como value, lo que hacía que el type narrowing del filter se pierda al recuperar `mostRecent`. Fix: tipar el Map con el narrowed type. Esto es un patrón general: cuando un type guard se usa para construir una colección, la colección debe tener el narrowed type, no el wide type. Documentado como decisión deliberada #1.

@@ -29,4 +29,9 @@ export {
   PRILEPIN_TABLE,
   type PrilepinRow,
 } from "./one-rm";
+export {
+  aggregateByExercise,
+  getRecordsForExercise,
+  type ExerciseSummary,
+} from "./aggregate";
 export { suggestRepsForExercise } from "./suggest-reps";
