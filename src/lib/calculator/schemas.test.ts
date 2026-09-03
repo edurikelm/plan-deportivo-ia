@@ -16,6 +16,7 @@ import {
   crossCheckBreakdown,
   DiscRowSchema,
   BreakdownSchema,
+  SavedWeightRecordSchema,
   type Breakdown,
 } from "./schemas";
 
@@ -209,5 +210,80 @@ describe("BreakdownSchema", () => {
       totalLb: 1,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+// ─── SavedWeightRecordSchema (issue 0036 migration) ─────────────────────────
+
+/**
+ * Verifies the silent migration of legacy `SavedWeightRecord` entries
+ * (pre-0036: no `reps`, no `isOneRepMax`) and the rejection of malformed
+ * `reps` values. The storage parser in `lib/storage.ts` drops entries
+ * that fail this schema, so a passing test here means the entry survives
+ * `parseRecordsFromRaw` and rehydrates with sensible defaults.
+ */
+describe("SavedWeightRecordSchema — legacy migration (issue 0036)", () => {
+  // Minimal valid record. We only need the fields the schema reads; the
+  // other fields are populated with placeholders that pass their own
+  // sub-validators.
+  const validBase = {
+    id: "test-id",
+    createdAt: "2026-08-15T00:00:00.000Z",
+    exercise: "Back Squat",
+    barKg: 20,
+    discs: [],
+    totalKg: 100,
+    totalLb: 220.462,
+    breakdownLine: "20kg + (40kg)×2",
+    source: "manual" as const,
+  };
+
+  it("rehydrates a legacy record (no reps, no isOneRepMax) with null + false", () => {
+    const result = SavedWeightRecordSchema.safeParse(validBase);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reps).toBeNull();
+      expect(result.data.isOneRepMax).toBe(false);
+    }
+  });
+
+  it("accepts reps: null explicitly (foto / explicitly nulled records)", () => {
+    const result = SavedWeightRecordSchema.safeParse({
+      ...validBase,
+      reps: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reps).toBeNull();
+    }
+  });
+
+  it("rejects a negative reps value (storage parser will drop the record)", () => {
+    const result = SavedWeightRecordSchema.safeParse({
+      ...validBase,
+      reps: -3,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-integer reps value (storage parser will drop the record)", () => {
+    const result = SavedWeightRecordSchema.safeParse({
+      ...validBase,
+      reps: 1.5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a valid reps and preserves isOneRepMax override", () => {
+    const result = SavedWeightRecordSchema.safeParse({
+      ...validBase,
+      reps: 1,
+      isOneRepMax: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reps).toBe(1);
+      expect(result.data.isOneRepMax).toBe(true);
+    }
   });
 });

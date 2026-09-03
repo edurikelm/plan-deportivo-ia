@@ -34,6 +34,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Vitest scratch output (transient logs from manual test runs)
+test-stdout.txt
+test-stderr.txt
+test-output.txt
+
 # OpenCode
 .opencode/*.tmp
 

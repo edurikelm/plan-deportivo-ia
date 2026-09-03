@@ -58,6 +58,19 @@ export const SavedWeightRecordSchema = z.object({
     .min(1, "El desglose no puede estar vacío")
     .max(200, "El desglose es demasiado largo"),
   source: RecordSourceSchema,
+  // Reps: required for new manual records, null for legacy/foto. The
+  // `.default(null)` lets legacy records (pre-0036) rehydrate without
+  // the field — they get `reps: null` and are excluded from 1RM
+  // estimation but still appear in the progression charts.
+  reps: z
+    .number()
+    .int("Las reps deben ser un número entero")
+    .min(1, "Las reps deben ser al menos 1")
+    .nullable()
+    .default(null),
+  // Manual override flag. Defaults to false so legacy records parse
+  // without the field. Drives the 1RM aggregation when set.
+  isOneRepMax: z.boolean().default(false),
 });
 
 export type { RecordSource, SavedWeightRecord };

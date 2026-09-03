@@ -88,4 +88,16 @@ export interface SavedWeightRecord {
   /** Pre-formatted line for display in lists (e.g. "20kg + (25kg + 10kg)×2"). */
   breakdownLine: string;
   source: RecordSource;
+  /**
+   * Repetitions executed in the set. Required for new `manual` records;
+   * null for legacy records (pre-0036) and `foto` records. Drives the
+   * 1RM estimation via Epley (see `one-rm.ts`).
+   */
+  reps: number | null;
+  /**
+   * Optional manual override marking this record as the user's 1RM for
+   * the exercise. Defaults to false; if true, the record's `totalKg`
+   * competes with the Epley-estimated value when aggregating per exercise.
+   */
+  isOneRepMax?: boolean;
 }

@@ -22,3 +22,10 @@ export {
   normalizeExerciseName,
   type ComputedTotals,
 } from "./history";
+export {
+  aggregateExerciseOneRepMax,
+  buildPrilepinRows,
+  estimateOneRepMax,
+  PRILEPIN_TABLE,
+  type PrilepinRow,
+} from "./one-rm";

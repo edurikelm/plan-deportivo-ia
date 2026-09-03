@@ -93,6 +93,11 @@ export function SaveRecordForm({
         totalLb: totals.totalLb,
         breakdownLine: totals.breakdownLine,
         source: "manual",
+        // Issue 0036: `reps` is required on manual records. The form
+        // doesn't collect it yet (that's 0037), so we hardcode `1` —
+        // which is the same default the new input will use. Once 0037
+        // ships, the form will pass the coach-entered value here.
+        reps: 1,
       };
       addRecord(record);
       toast.success("Carga guardada");

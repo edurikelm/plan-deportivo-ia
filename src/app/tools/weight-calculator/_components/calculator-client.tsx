@@ -453,6 +453,10 @@ export function CalculatorClient() {
       totalLb: totals.totalLb,
       breakdownLine: totals.breakdownLine,
       source: "foto",
+      // The Foto tab is being deactivated in 0040 and never asked for reps
+      // in the first place; the field is `null` on foto records so they're
+      // excluded from 1RM aggregation (see issue 0036).
+      reps: null,
     };
     try {
       addRecord(fotoRecord);
