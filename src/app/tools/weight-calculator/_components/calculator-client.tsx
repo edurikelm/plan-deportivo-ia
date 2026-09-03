@@ -142,7 +142,7 @@ export function CalculatorClient() {
 
   // UI state
   const [activeTab, setActiveTab] = useState<ActiveTab>("manual");
-  const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("kg");
+  const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("lb");
   const [customBarKg, setCustomBarKg] = useState<string>("");
   const [showCustomBar, setShowCustomBar] = useState(false);
   // Save-form visibility. The form is mounted only when open (controlled by
@@ -242,7 +242,7 @@ export function CalculatorClient() {
   const addDisc = useCallback(() => {
     setDiscs((prev) => [
       ...prev,
-      { id: newDiscId(), weight: 20, unit: "kg", count: 1 },
+      { id: newDiscId(), weight: 20, unit: "lb", count: 1 },
     ]);
   }, []);
 
@@ -786,10 +786,15 @@ export function CalculatorClient() {
                         inputMode="decimal"
                         min="0"
                         step="0.5"
-                        value={disc.weight}
+                        value={disc.weight === 0 ? "" : disc.weight}
                         onChange={(e) => {
-                          const parsed = parseFloat(e.target.value);
-                          if (!Number.isNaN(parsed) && parsed > 0) {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            updateDisc(disc.id, "weight", 0);
+                            return;
+                          }
+                          const parsed = parseFloat(raw);
+                          if (!Number.isNaN(parsed) && parsed >= 0) {
                             updateDisc(disc.id, "weight", parsed);
                           }
                         }}
@@ -821,14 +826,18 @@ export function CalculatorClient() {
                         inputMode="numeric"
                         min="1"
                         step="1"
-                        value={disc.count}
-                        onChange={(e) =>
-                          updateDisc(
-                            disc.id,
-                            "count",
-                            parseInt(e.target.value, 10) || 1,
-                          )
-                        }
+                        value={disc.count === 0 ? "" : disc.count}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            updateDisc(disc.id, "count", 0);
+                            return;
+                          }
+                          const parsed = parseInt(raw, 10);
+                          if (!Number.isNaN(parsed) && parsed >= 0) {
+                            updateDisc(disc.id, "count", parsed);
+                          }
+                        }}
                         aria-label="Cantidad de discos por lado"
                         className="numeric text-sm w-14 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
                       />
