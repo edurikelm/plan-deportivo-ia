@@ -353,10 +353,10 @@ function ProgressionChart({ records }: { records: SavedWeightRecord[] }) {
     <ChartCard title="Progresión" subtitle="Carga total (kg) por sesión">
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--hairline)" strokeDasharray="2 4" />
-          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--mute)" }} />
+          <CartesianGrid stroke="var(--color-hairline)" strokeDasharray="2 4" />
+          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--mute)" }}
+            tick={{ fontSize: 10, fill: "var(--color-mute)" }}
             width={36}
             unit="kg"
           />
@@ -364,9 +364,9 @@ function ProgressionChart({ records }: { records: SavedWeightRecord[] }) {
           <Line
             type="monotone"
             dataKey="totalKg"
-            stroke="var(--signal)"
+            stroke="var(--color-signal)"
             strokeWidth={2}
-            dot={{ r: 3, fill: "var(--signal)" }}
+            dot={{ r: 3, fill: "var(--color-signal)" }}
             activeDot={{ r: 5 }}
             isAnimationActive={false}
           />
@@ -412,10 +412,10 @@ function VolumeChart({ records }: { records: SavedWeightRecord[] }) {
     <ChartCard title="Volumen" subtitle="Carga × repeticiones">
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--hairline)" strokeDasharray="2 4" />
-          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--mute)" }} />
+          <CartesianGrid stroke="var(--color-hairline)" strokeDasharray="2 4" />
+          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--mute)" }}
+            tick={{ fontSize: 10, fill: "var(--color-mute)" }}
             width={42}
             unit="kg"
           />
@@ -429,7 +429,7 @@ function VolumeChart({ records }: { records: SavedWeightRecord[] }) {
           <Tooltip content={VolumeTooltip as never} />
           <Bar
             dataKey="volume"
-            fill="var(--signal)"
+            fill="var(--color-signal)"
             isAnimationActive={false}
           />
         </BarChart>
@@ -475,10 +475,10 @@ function EstimatedOneRmChart({ records }: { records: SavedWeightRecord[] }) {
     >
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--hairline)" strokeDasharray="2 4" />
-          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--mute)" }} />
+          <CartesianGrid stroke="var(--color-hairline)" strokeDasharray="2 4" />
+          <XAxis dataKey="tick" tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--mute)" }}
+            tick={{ fontSize: 10, fill: "var(--color-mute)" }}
             width={36}
             unit="kg"
           />
@@ -486,9 +486,9 @@ function EstimatedOneRmChart({ records }: { records: SavedWeightRecord[] }) {
           <Line
             type="monotone"
             dataKey="e1rm"
-            stroke="var(--signal)"
+            stroke="var(--color-signal)"
             strokeWidth={2}
-            dot={{ r: 3, fill: "var(--signal)" }}
+            dot={{ r: 3, fill: "var(--color-signal)" }}
             activeDot={{ r: 5 }}
             isAnimationActive={false}
             connectNulls={false}
