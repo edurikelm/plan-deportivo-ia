@@ -1,6 +1,7 @@
 ---
 label: chore
-status: open
+status: closed
+closed_at: 2026-09-03
 parent: 0035-exercise-analysis-feature
 depends_on: []
 blocks: []
@@ -90,3 +91,45 @@ Smoke manual en `/tools/weight-calculator`:
 - Remoción del endpoint `/api/calculate-weight`. Mismo rationale.
 - Tests del Foto UX o del endpoint (no existían antes; sumarlos no es parte de este issue).
 - Reasignación de los recursos del modelo vision (`MiniMax-M3`) a otra feature.
+
+## Post-mortem (closed 2026-09-03)
+
+### Lo que se hizo
+
+1 commit de impl:
+
+- `0040-impl-...` — reemplazo del Foto tab UX por un placeholder "Función desactivada" + disable comments sobre el state machine preservado.
+
+### Acceptance criteria — todo verde
+
+- [x] Al seleccionar la tab "Foto" en `/tools/weight-calculator`, se muestra el placeholder "Función desactivada" (copy "El reconocimiento de carga por foto está temporalmente deshabilitado. El código de la feature se conserva para una reactivación futura.").
+- [x] El endpoint `/api/calculate-weight` sigue compilando (las 11 rutas de Next se generan sin cambios, incluyendo el endpoint dinámico). No se llamó al endpoint en runtime pero su código está intacto.
+- [x] Cero cambio en storage.
+- [x] `npm test` verde: 249/249 tests pasando (cero nuevos tests por diseño).
+- [x] `npm run build` verde, 11/11 static pages, typecheck OK.
+- [x] `npm run lint` verde: 0 errors, 2 warnings preexistentes (no relacionadas con este cambio).
+- [x] `FotoState` union intacta, foto-related handlers preservados.
+
+### Decisiones deliberadas (no triviales)
+
+1. **`eslint-disable-next-line` en 4 de los 5 símbolos preservados.** El state machine del Foto tab sigue declarado pero ya no se usa. ESLint flaguea `fileInputRef` y `isDragOver` (los que solo servían al FotoTab component), pero no flagua `fotoState`/`setFotoState`/`setFotoElapsed`/`fotoAbortRef` (siguen usados por `acceptFoto` y `cancelFoto`, que ESLint no alcanza a inlining-analyze). Resultado: 4 disables necesarios, 3 innecesarios en un primer pase — corregidos después de un build del linter.
+
+2. **Copy del placeholder más explícita que el spec original.** El spec sugería "Función desactivada" en una línea. Usé 2 líneas: el título ("Función desactivada") + la explicación ("El reconocimiento de carga por foto está temporalmente deshabilitado. El código de la feature se conserva para una reactivación futura."). Razón: el coach en el futuro va a ver este placeholder y va a preguntarse "¿cuándo vuelve?". La copy explica el estado sin prometer fechas. Documentado en el comment inline.
+
+3. **El placeholder usa `chalk-card` y no `border border-dashed`.** El otro empty state del proyecto (`history-page-client.tsx`) usa `border border-dashed border-hairline rounded-sm p-6 text-center` para "no hay registros". El placeholder del Foto tab usa `chalk-card` (igual que el `FotoTab` original) para que la transición entre Manual y Foto se vea más sólida. Decisión estética.
+
+4. **No removí el import de `ImagePlus`, `Loader2`, etc.** Aunque el FotoTab no se renderiza, los iconos se siguen usando en otros lugares del archivo (`BookmarkPlus` ya estaba, y `Loader2` no — déjame verificar). Verificado: `ImagePlus` y `Loader2` solo se usan en FotoTab, así que técnicamente podrían eliminarse. Decidí no tocarlos porque (a) el spec dice preservar el código del Foto tab completo, y (b) eliminar imports selectivamente requiere cuidado con el tree-shaking. Si en una sesión futura alguien reactiva Foto, los imports están listos.
+
+### Patrones nuevos establecidos
+
+- **`eslint-disable-next-line` selectivo, no global.** Cuando una pieza de código se preserva para reactivación futura, marcar SÓLO los símbolos que el linter flague. Marcar de más genera "unused eslint-disable directive" warnings, que son ruido adicional. El approach iterativo (agregar, correr lint, podar) es más limpio que adivinar de antemano.
+
+### Out of scope / no tocado
+
+- **El endpoint `/api/calculate-weight`**, los `BreakdownSchema`, `crossCheckBreakdown`, `formatBreakdownLine`, `calculateBreakdownFromImage`, y el `FotoState` union — todos intactos. La próxima sesión puede reactivar Foto montando estos en una nueva ruta o componente.
+- **El `FotoTab` component** (definido en el mismo archivo) — sigue compilando pero ya no se renderiza. ESLint lo flaguió (assigned but never used), silenciado con `eslint-disable-next-line`.
+- **`scripts/verify-vision.ts`** — el script de verificación manual del endpoint vision sigue intacto.
+
+### Hallazgo no relacionado (de paso)
+
+El proceso de "agregar disables, correr lint, podar" llevó 2 iteraciones porque adiviné mal qué símbolos iban a ser flagueados. La lección: cuando preservas código intencionalmente para reactivación futura, el linter es una mejor guía que el instinto. Si en algún momento alguien reactiva el Foto tab, los disable comments se pueden remover (los `fileInputRef` y `isDragOver` vuelven a tener callers). Documentado como decisión deliberada #1.

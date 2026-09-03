@@ -157,10 +157,17 @@ export function CalculatorClient() {
   }, []);
 
   // Foto state
+  // Issue 0040: the Foto tab is visually disabled but the state machine
+  // and event handlers stay in the code for a future reactivation. The
+  // `eslint-disable-next-line` markers on the symbols below are the ones
+  // the linter actually flags; the others are read by the Foto state
+  // machine handlers preserved further down in the file.
   const [fotoState, setFotoState] = useState<FotoState>({ kind: "idle" });
   const [fotoElapsed, setFotoElapsed] = useState(0);
   const fotoAbortRef = useRef<AbortController | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Auto-log was removed (see 0017 post-mortem). Previously a debounced
@@ -398,12 +405,14 @@ export function CalculatorClient() {
     reader.readAsDataURL(file);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function onFileInput(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
     e.target.value = "";
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragOver(false);
@@ -411,16 +420,19 @@ export function CalculatorClient() {
     if (file) handleFile(file);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function onDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragOver(true);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function onDragLeave(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragOver(false);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function acceptFoto() {
     if (fotoState.kind !== "preview") return;
     const breakdown = fotoState.breakdown;
@@ -480,6 +492,7 @@ export function CalculatorClient() {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function cancelFoto() {
     setFotoState({ kind: "idle" });
   }
@@ -900,20 +913,24 @@ export function CalculatorClient() {
         )}
 
         {/* ── Foto tab ───────────────────────────────────────────────── */}
+        {/* Issue 0040: the Foto tab is intentionally disabled. The coach
+            confirmed in the grill R3 Q10 that this surface is not used.
+            We render a placeholder instead of the Foto UX so the tab is
+            visible in the catalog (signaling the feature exists) but
+            non-interactive. The `FotoTab` component, the `FotoState`
+            union, the API route, and the breakdown schema stay in the
+            codebase intact for a future reactivation. */}
         {activeTab === "foto" && (
-          <FotoTab
-            fotoState={fotoState}
-            isDragOver={isDragOver}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onPickFile={() => fileInputRef.current?.click()}
-            onChangeFile={onFileInput}
-            onAccept={acceptFoto}
-            onCancel={cancelFoto}
-            onRetry={cancelFoto}
-            fileInputRef={fileInputRef}
-          />
+          <div className="chalk-card p-6 text-center space-y-2">
+            <p className="font-sans text-sm font-semibold text-bone">
+              Función desactivada
+            </p>
+            <p className="font-sans text-xs text-mute leading-relaxed max-w-md mx-auto">
+              El reconocimiento de carga por foto está temporalmente
+              deshabilitado. El código de la feature se conserva para una
+              reactivación futura.
+            </p>
+          </div>
         )}
       </main>
 
@@ -1247,6 +1264,7 @@ interface FotoTabProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function FotoTab({
   fotoState,
   isDragOver,
