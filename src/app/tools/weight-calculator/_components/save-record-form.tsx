@@ -98,6 +98,7 @@ export function SaveRecordForm({
         // which is the same default the new input will use. Once 0037
         // ships, the form will pass the coach-entered value here.
         reps: 1,
+        isOneRepMax: false,
       };
       addRecord(record);
       toast.success("Carga guardada");

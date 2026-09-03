@@ -10,7 +10,7 @@ import type { DiscRow } from "./schemas";
 import { formatBreakdownLine } from "./schemas";
 import type { SavedWeightRecord } from "../types";
 
-const KG_PER_LB = 2.20462;
+export const KG_PER_LB = 2.20462;
 const LB_PER_KG = 1 / KG_PER_LB;
 
 function lbToKg(lb: number): number {

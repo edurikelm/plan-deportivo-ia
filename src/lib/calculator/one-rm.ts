@@ -6,11 +6,9 @@
  * snapshots. Tested in `one-rm.test.ts`.
  */
 import type { SavedWeightRecord } from "../types";
+import { KG_PER_LB } from "./history";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-/** Conversion factor from kg to lb. Matches the rest of the calculator. */
-const KG_PER_LB = 2.20462;
 
 /**
  * Prilepin's table for high-intensity training, reps 1-12. The percentage

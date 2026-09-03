@@ -457,6 +457,7 @@ export function CalculatorClient() {
       // in the first place; the field is `null` on foto records so they're
       // excluded from 1RM aggregation (see issue 0036).
       reps: null,
+      isOneRepMax: false,
     };
     try {
       addRecord(fotoRecord);

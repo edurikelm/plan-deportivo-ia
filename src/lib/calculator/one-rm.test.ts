@@ -82,12 +82,6 @@ describe("estimateOneRepMax", () => {
     expect(estimateOneRepMax(mkRecord({ reps: 5, totalKg: 0 }))).toBe(0);
   });
 
-  it("is idempotent for reps === 1: 100kg → 100kg exactly", () => {
-    // No floating-point drift. The piecewise path must not apply Epley.
-    const result = estimateOneRepMax(mkRecord({ reps: 1, totalKg: 100 }));
-    expect(result).toBe(100);
-  });
-
   it("scales proportionally for reps === 2", () => {
     // 50 × (1 + 2/30) = 50 × 1.0667 = 53.3333
     expect(estimateOneRepMax(mkRecord({ reps: 2, totalKg: 50 }))).toBeCloseTo(

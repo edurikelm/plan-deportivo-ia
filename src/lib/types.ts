@@ -95,9 +95,10 @@ export interface SavedWeightRecord {
    */
   reps: number | null;
   /**
-   * Optional manual override marking this record as the user's 1RM for
-   * the exercise. Defaults to false; if true, the record's `totalKg`
-   * competes with the Epley-estimated value when aggregating per exercise.
+   * Manual override flag marking this record as the user's 1RM for
+   * the exercise. Always present after Zod parse (`.default(false)`).
+   * If true, the record's `totalKg` competes with the Epley-estimated
+   * value when aggregating per exercise (see ADR-0010).
    */
-  isOneRepMax?: boolean;
+  isOneRepMax: boolean;
 }

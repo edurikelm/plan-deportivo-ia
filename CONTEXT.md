@@ -121,10 +121,10 @@ Generá la sesión con estos parámetros:
 - `barKg: number` — snapshot en kg.
 - `discs: DiscRow[]` — **snapshot** del desglose al momento de registrar. No es referencia viva al estado actual de la calculadora.
 - `totalKg: number` y `totalLb: number` — totales pre-calculados al persistir.
-- `reps: number` — cantidad de repeticiones ejecutadas en el set. **Entero positivo** (≥1). **Obligatorio** en registros nuevos (`manual` y `foto`). Para foto, se completa en el preview antes de aplicar (default sugerido: 1). Registros pre-migración sin `reps` se aceptan con `null` (legacy) y se filtran para el cálculo de 1RM estimado, pero siguen contando para los charts de peso total y volumen.
+- `reps: number | null` — cantidad de repeticiones ejecutadas en el set. **Entero positivo** (≥1) cuando está presente. **Obligatorio** en registros nuevos `manual` (default 1, input que se colecta en 0037). **Null** en registros `foto` (el Foto tab no captura reps y va a desactivarse en 0040) y en registros pre-migración sin `reps` (legacy/auto-log). Los registros con `reps: null` se filtran del cálculo de 1RM estimado pero siguen contando para los charts de peso total y volumen.
 - `breakdownLine: string` — pre-formateado vía `formatBreakdownLine` para mostrar en listas.
 - `source: "auto-log" | "manual" | "foto"` — cómo se capturó. **Sólo `manual` y `foto` se generan desde 0017.** `auto-log` queda en el enum para que entries stale escritos por builds anteriores sigan validando; Zod los descarta silenciosamente si fallan el enum.
-- `isOneRepMax: boolean` *(opcional, en evaluación)* — flag explícito del coach para sobreescribir el 1RM estimado por fórmula. Default `false`. Sólo aplica cuando la fórmula no refleja la realidad (ej. un 1RM testeado en competencia). El análisis toma `max(1RM_formula, 1RM_flag)` entre los registros del ejercicio.
+- `isOneRepMax: boolean` — flag explícito del coach para sobreescribir el 1RM estimado por fórmula. **Siempre presente** después del parse de Zod (default `false` en el schema). Sólo se setea en `true` cuando la fórmula no refleja la realidad (ej. un 1RM testeado en competencia). El análisis toma `max(1RM_formula, 1RM_flag)` entre los registros del ejercicio.
 - Persistido en `pd:calculator-records`. **Sin cap** (la feature que justificaba el cap — auto-log — fue removida). Los registros `manual` y `foto` **nunca** se descartan automáticamente.
 
 ## Reglas del Negocio
