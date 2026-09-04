@@ -34,4 +34,8 @@ export {
   getRecordsForExercise,
   type ExerciseSummary,
 } from "./aggregate";
+export {
+  deriveExerciseIndex,
+  type ExerciseIndexEntry,
+} from "./exercise-index";
 export { suggestRepsForExercise } from "./suggest-reps";

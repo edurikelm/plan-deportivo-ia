@@ -40,12 +40,12 @@ const RECORDS_KEY = "pd:calculator-records";
 
 // ─── External store subscription ────────────────────────────────────────────
 //
-// Same `useSyncExternalStore` pattern as `history-page-client.tsx`: subscribe
-// to the global `storage` event (covers both same-tab `dispatchStorage` from
-// the storage helpers AND cross-tab writes). `getServerSnapshot` returns
-// `""` so the SSR markup matches the first client render — the page renders
-// a header-only placeholder until hydration, then re-renders with the real
-// records.
+// Same `useSyncExternalStore` pattern as `exercises-page-client.tsx`:
+// subscribe to the global `storage` event (covers both same-tab
+// `dispatchStorage` from the storage helpers AND cross-tab writes).
+// `getServerSnapshot` returns `""` so the SSR markup matches the first
+// client render — the page renders a header-only placeholder until
+// hydration, then re-renders with the real records.
 
 function subscribeToStorage(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -65,7 +65,7 @@ function getServerSnapshot(): string {
 /**
  * Spanish short-month absolute date for the exercise list (e.g.
  * "03 sep 2026"). Locale-free, same array as
- * `history-page-client.tsx`'s `formatAbsolute` to keep visual consistency.
+ * `exercises-page-client.tsx`'s `formatDate` to keep visual consistency.
  */
 const SPANISH_MONTHS_ABBR = [
   "ene",
@@ -152,8 +152,8 @@ export function AnalysisPageClient({ name }: AnalysisPageClientProps) {
               variant="ghost"
               size="icon-sm"
               nativeButton={false}
-              render={<Link href="/tools/weight-calculator/history" />}
-              aria-label="Volver al historial"
+              render={<Link href="/tools/weight-calculator/exercises" />}
+              aria-label="Volver al listado de ejercicios"
               className="rounded-md text-mute hover:text-bone hover:bg-transparent"
             >
               <ArrowLeft className="size-4" />
@@ -216,7 +216,7 @@ function Header({
           size="icon-sm"
           nativeButton={false}
           render={
-            <Link href="/tools/weight-calculator/history" />
+            <Link href="/tools/weight-calculator/exercises" />
           }
           aria-label="Volver al historial"
           className="rounded-md text-mute hover:text-bone hover:bg-transparent shrink-0"
@@ -249,9 +249,9 @@ function NoRecordsState({ name }: { name: string }) {
             size="icon-sm"
             nativeButton={false}
             render={
-              <Link href="/tools/weight-calculator/history" />
+              <Link href="/tools/weight-calculator/exercises" />
             }
-            aria-label="Volver al historial"
+            aria-label="Volver al listado de ejercicios"
             className="rounded-md text-mute hover:text-bone hover:bg-transparent shrink-0"
           >
             <ArrowLeft className="size-4" />
@@ -266,10 +266,10 @@ function NoRecordsState({ name }: { name: string }) {
           <p className="font-sans text-sm text-mute leading-relaxed">
             No hay registros para este ejercicio. Volvé al{" "}
             <Link
-              href="/tools/weight-calculator/history"
+              href="/tools/weight-calculator/exercises"
               className="font-semibold text-bone hover:text-signal underline underline-offset-2"
             >
-              historial
+              listado de ejercicios
             </Link>{" "}
             o a la{" "}
             <Link

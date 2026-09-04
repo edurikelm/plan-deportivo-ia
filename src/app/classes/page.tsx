@@ -105,7 +105,7 @@ export default function ClassesPage() {
                 <footer className="mt-4 pt-3 border-t border-hairline flex items-center justify-end">
                   <Button
                     nativeButton={false}
-                    render={<Link href="/tools/weight-calculator/history" />}
+                    render={<Link href="/tools/weight-calculator/exercises" />}
                     className="rounded-md text-[0.6875rem] font-semibold uppercase tracking-[0.10em] border border-signal bg-transparent text-signal hover:bg-signal hover:text-signal-foreground transition-colors h-8 px-4 inline-flex items-center gap-1.5"
                   >
                     Ver ejercicios

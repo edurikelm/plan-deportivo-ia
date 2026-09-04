@@ -7,7 +7,7 @@
  * TZ is forced to UTC at the top of this module so `getDate()` /
  * `getMonth()` produce stable values across CI environments (the
  * `formatProgressionTick` helper uses local time to stay consistent with
- * `history-page-client.tsx`'s `formatAbsolute`).
+ * `exercises-page-client.tsx`'s `formatDate`).
  */
 process.env.TZ = "UTC";
 

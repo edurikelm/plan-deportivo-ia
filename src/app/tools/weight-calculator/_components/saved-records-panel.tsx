@@ -165,10 +165,10 @@ export function SavedRecordsPanel({ onLoad }: SavedRecordsPanelProps) {
 
       <footer className="pt-3 border-t border-hairline flex items-center justify-end">
         <Link
-          href="/tools/weight-calculator/history"
+          href="/tools/weight-calculator/exercises"
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-signal hover:underline inline-flex items-center gap-1.5"
         >
-          Ver historial completo
+          Ver todos los ejercicios
           <span aria-hidden>→</span>
         </Link>
       </footer>

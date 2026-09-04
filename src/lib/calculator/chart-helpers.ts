@@ -29,8 +29,8 @@ const SPANISH_MONTHS_ABBR = [
  * Formats an ISO timestamp as a short, locale-free Spanish date used as
  * the X-axis tick on the analysis charts. Format: `"DD mmm"` (e.g. `"03 sep"`).
  *
- * Uses local time (consistent with `history-page-client.tsx`'s
- * `formatAbsolute` so the chart ticks match the dates shown in the
+ * Uses local time (consistent with `exercises-page-client.tsx`'s
+ * `formatDate` so the chart ticks match the dates shown in the
  * exercise list). Returns the empty string for invalid input — Recharts
  * can render an empty label without crashing, and the chart will simply
  * skip that data point's tick.
