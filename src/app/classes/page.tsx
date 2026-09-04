@@ -74,7 +74,7 @@ export default function ClassesPage() {
                   </span>
                 </header>
                 <p className="mt-4 text-sm text-mute leading-relaxed">
-                  Calculá el peso total de una sesión de levantamiento. Soporta barra + discos
+                  Calcula el peso total de una sesión de levantamiento. Soporta barra + discos
                   por lado con mezcla de kg y lb.
                 </p>
                 <footer className="mt-4 pt-3 border-t border-hairline flex items-center justify-end">
@@ -100,7 +100,7 @@ export default function ClassesPage() {
                   </span>
                 </header>
                 <p className="mt-4 text-sm text-mute leading-relaxed">
-                  Visualizá progresión, 1RM estimado y tabla de RM por ejercicio.
+                  Visualiza progresión, 1RM estimado y tabla de RM por ejercicio.
                 </p>
                 <footer className="mt-4 pt-3 border-t border-hairline flex items-center justify-end">
                   <Button
