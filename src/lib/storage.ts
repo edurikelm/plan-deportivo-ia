@@ -23,7 +23,7 @@ function dispatchStorage(key: string, newValue: string): void {
  * quota was exceeded. Centralized here so that every persistence call site
  * (save form, foto accept, history delete) can distinguish a quota error
  * (actionable: "borrar registros antiguos") from a generic IO error
- * ("probá de nuevo"). Both `QuotaExceededError` (Chromium / Firefox) and
+ * ("intenta de nuevo"). Both `QuotaExceededError` (Chromium / Firefox) and
  * `NS_ERROR_DOM_QUOTA_REACHED` (older Firefox) are accepted.
  */
 export function isQuotaError(err: unknown): boolean {

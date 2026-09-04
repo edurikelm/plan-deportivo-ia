@@ -12,8 +12,8 @@ import { ExercisesPageClient } from "./_components/exercises-page-client";
  *
  * The route replaces the older `/tools/weight-calculator/history`
  * surface, which used the same data but a different shape (flat
- * `ExerciseSummary` via `aggregateByExercise`). See `next.config.ts`
- * for the permanent redirect from the old URL.
+ * per-exercise summaries via the now-removed `aggregateByExercise`).
+ * See `next.config.ts` for the permanent redirect from the old URL.
  */
 export const metadata: Metadata = {
   title: "Ejercicios — Calculadora de Pesos — Plan Deportivo IA",

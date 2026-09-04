@@ -12,18 +12,17 @@
  * it.
  *
  * Relationship to existing helpers in this directory:
- *  - `aggregateByExercise` returns `ExerciseSummary` (derived aggregates
- *    like `bestTotalKg` and `estimatedOneRmKg`). Used by older surfaces.
  *  - `getRecordsForExercise` returns the full record list for one
  *    exercise. Used by the per-exercise analysis view.
  *  - `deriveExerciseIndex` (this module) returns the *full last record*
  *    alongside the count and display name. Drives the catalog view
  *    where the most-recent record is the at-a-glance summary.
  *
- * The two helpers (`aggregateByExercise` and `deriveExerciseIndex`) are
- * kept separate because they answer different questions: "what's the
- * best total for this exercise?" vs. "what was the most recent thing
- * I logged?". A future consolidation could share the grouping step.
+ * The catalog used to be served by an older `aggregateByExercise` helper
+ * returning derived aggregates (`bestTotalKg`, `estimatedOneRmKg`).
+ * That surface was replaced by `deriveExerciseIndex` in issue 0042:
+ * the new shape (the full last record) lets the card show the source
+ * and 1RM flag inline, which `ExerciseSummary` did not surface.
  */
 import type { SavedWeightRecord } from "../types";
 
@@ -33,7 +32,7 @@ import type { SavedWeightRecord } from "../types";
  * The display name of an exercise in the index. Case-preserving: when
  * the same exercise is recorded under multiple capitalizations, the
  * most recent record's spelling wins. Matches the "most-recent-wins"
- * convention from `dedupeExercises` and `aggregateByExercise`.
+ * convention from `dedupeExercises` and `getRecordsForExercise`.
  */
 export interface ExerciseIndexEntry {
   name: string;
@@ -56,7 +55,8 @@ export interface ExerciseIndexEntry {
  *
  * Records with `exercise === null` (auto-log, foto legacy) are
  * excluded — they have no exercise identity to group by. This matches
- * the convention established by `aggregateByExercise` (issue 0038).
+ * the convention established by `dedupeExercises` and the
+ * `getRecordsForExercise` filter.
  *
  * Sort order:
  *  1. Most recent record's `createdAt` descending (most recently trained
@@ -99,9 +99,9 @@ export function deriveExerciseIndex(
   const entries: ExerciseIndexEntry[] = [];
   for (const group of groups.values()) {
     // Sort by `createdAt` desc so `group[0]` is the most recent. Using
-    // `localeCompare` (string compare) matches `aggregateByExercise` —
-    // both are valid for ISO 8601 timestamps because the lexicographic
-    // order coincides with the chronological order.
+    // `localeCompare` (string compare) is valid for ISO 8601 timestamps
+    // because the lexicographic order coincides with the chronological
+    // order. This matches the convention `getRecordsForExercise` uses.
     group.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const mostRecent = group[0];
     entries.push({

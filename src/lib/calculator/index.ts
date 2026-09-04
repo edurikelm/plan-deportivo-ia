@@ -29,11 +29,7 @@ export {
   PRILEPIN_TABLE,
   type PrilepinRow,
 } from "./one-rm";
-export {
-  aggregateByExercise,
-  getRecordsForExercise,
-  type ExerciseSummary,
-} from "./aggregate";
+export { getRecordsForExercise } from "./aggregate";
 export {
   deriveExerciseIndex,
   type ExerciseIndexEntry,
