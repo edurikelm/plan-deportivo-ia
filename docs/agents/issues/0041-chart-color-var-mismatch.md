@@ -1,6 +1,7 @@
 ---
 label: bug
-status: open
+status: closed
+closed_at: 2026-09-04
 parent: 0035-exercise-analysis-feature
 depends_on: []
 blocks: []
