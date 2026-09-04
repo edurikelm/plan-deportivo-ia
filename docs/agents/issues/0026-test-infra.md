@@ -1,6 +1,7 @@
 ---
 label: chore
-status: open
+status: closed
+closed_at: 2026-09-04
 parent: null
 ---
 
@@ -109,3 +110,49 @@ Un umbrella de **5 tickets verticales**, cada uno entregable de forma independie
   4. `0030` — M4: tests de `storage.ts` parsers
   5. `0031` — M5: tests de componentes
 - **Riesgo principal**: Vitest en Next.js 16 + Turbopack. Vitest es independiente de Turbopack (Vite-based, no Next), así que no hay conflicto, pero si aparecen peer dep warnings en Windows, fixear con `npm install --legacy-peer-deps` o pinning.
+
+## Post-mortem (closed 2026-09-04)
+
+### Lo que realmente se entregó (8 children, no 5)
+
+El spec original listaba 5 milestones (M1–M5 → 0027–0031). La entrega real creció a **8 children** porque tres cosas que el spec marcaba como "out of scope" terminaron siendo obvias durante la implementación:
+
+- `0032` — coverage gate (umbral mínimo en CI)
+- `0033` — raise coverage threshold una vez que el primer gate ya tenía datos
+- `0034` — GitHub Actions CI workflow (lint + build + test:coverage)
+
+Las tres eran trabajo que surgía de tener tests reales. La alternativa era dejar el umbrella "casi cerrado" hasta que apareciera demanda explícita; optamos por cerrarlo en una sola ola porque cada una costaba < 1 día y juntas completaban la promesa del spec ("`npm test` exit 0 en CI").
+
+### Estado final (medido al cierre)
+
+- **8/8 children cerrados** (0027 → 0034, ver `git log` y los 8 archivos `00{27..34}-*.md`).
+- **262/262 tests verde** (de 0 al inicio del umbrella).
+- **Coverage gate activo en CI**: `vitest run --coverage` falla el build si `src/lib/**` baja del threshold.
+- **CI GitHub Actions institucionalizado** desde `530492e` (lint + build + test:coverage en cada push/PR).
+- **Versión bumped a v0.2.6** en `8c436b3` para marcar el corte.
+
+### Lecciones (lo que repetiría / lo que no)
+
+**Repetiría:**
+
+1. **Co-localizar tests con la impl** (`*.test.ts` al lado de `*.ts`). El alias `@/*` en `vitest.config.ts` lo hace indoloro, y cuando un dev abre un archivo ve su test al lado. Redujo el costo de mantener tests actualizados.
+2. **Mocks manuales de `localStorage` con `Object.defineProperty`**, sin `happy-dom`. 15 líneas en `vitest.setup.ts` y cero deps extra. El primer PR con `happy-dom` habría agregado una dep y un risk surface sin ganancia.
+3. **Smoke test `1 + 1 === 2`** en M1. Suena trivial, pero fue el "puede correr CI" definitivo y se reemplazó limpiamente en M2.
+
+**No repetiría:**
+
+1. **Marcar CI como "out of scope" en el spec original.** Es tentador diferirlo para no inflar el ticket, pero el costo real de GitHub Actions es ~1 hora y el costo de no tenerlo es la duda de "esto pasa en mi máquina pero ¿en CI?". Mejor CI desde el día 1.
+2. **Coverage gate con threshold adivinando.** Empezamos con un número tentativo (50% en `src/lib/`) y lo subimos 2 veces (0033). La próxima umbrella equivalente debería empezar midiendo 1 semana sin gate, calcular el baseline real, y entonces setear el floor al baseline − 5%.
+3. **Tests que solo verifican implementación interna** (e.g. "este useRef se llama con X"). El sweet spot que encontramos fue: tests de comportamiento en funciones puras + tests de render con `getByRole/text` en componentes. Los tests de "este mock se llamó" envejecen mal y rompieron en refactors.
+
+### Patrones que dejó el umbrella (reutilizables)
+
+- **Vertical-slice por módulo** (M2 → M3 → M4 → M5), no horizontal por tipo. Cada milestone entregaba una unidad testeable end-to-end, no "todos los tests de mocks juntos".
+- **El close de cada child exige `npm test` + `npm run build` + `npm run lint` verde.** Se institucionalizó en la issue template de M1 en adelante. Sin esto, un test podría "verdear" pero romper el build silenciosamente.
+- **Commits atómicos por child** (un commit por ticket, mensaje que cita el número del issue). `git log --grep` se volvió una herramienta de navegación real.
+
+### Lo que NO se hizo (todavía no, no "out of scope para siempre")
+
+- **Visual regression tests** (0041 lo dejó explícito): el gap actual entre tests verdes y "se ve bien en el browser" es real. Lo más probable es que esto se solucione con un smoke browser-side en la issue template, no con Chromatic.
+- **Mutation testing** (Stryker): sigue siendo overkill. Si en 1 año el codebase crece 5x, revisar.
+- **E2E con Playwright**: sigue sin aplicar (single-user, localStorage-backed).
