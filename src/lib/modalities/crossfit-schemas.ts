@@ -168,7 +168,7 @@ export const MODEL = "MiniMax-Text-01";
  * the API rejects it on Text-01, per eval report 0011). Defaults are baked
  * into the schema so that even a partial JSON response is recoverable.
  */
-const JSON_SYSTEM_PROMPT = `Sos un coach deportivo especializado en CrossFit (CF-L3/L4). Tu única tarea es generar la estructura completa de una clase de CrossFit para los parámetros provistos. Respondé únicamente con un objeto JSON válido que cumpla este esquema exacto:
+const JSON_SYSTEM_PROMPT = `Eres un coach deportivo especializado en CrossFit (CF-L3/L4). Tu única tarea es generar la estructura completa de una clase de CrossFit para los parámetros provistos. Responde únicamente con un objeto JSON válido que cumpla este esquema exacto:
 
 {
   "class_title": "string (título descriptivo y motivador)",
@@ -205,11 +205,11 @@ Reglas:
 2. Nomenclatura: terminología CrossFit oficial (Thrusters, Snatch, Double Unders, HSPU, RX, Scaled).
 3. Coherencia: Warm-Up y Cool Down deben activar/recuperar los grupos del movimiento principal.
 4. description = solo una prose introductoria. NO enumeres ejercicios dentro de description. Todos los ejercicios van como elementos del array exercises.
-5. Respondé SOLO con el JSON. Sin texto antes ni después. Sin bloques markdown.`;
+5. Responde SOLO con el JSON. Sin texto antes ni después. Sin bloques markdown.`;
 
 const RETRY_SYSTEM_PROMPT_SUFFIX = `
 
-IMPORTANTE: Tu respuesta anterior fue rechazada porque contenía fences markdown (\`\`\`json), backticks, o texto antes/después del objeto JSON. Esta vez respondé EXCLUSIVAMENTE con el objeto JSON crudo, sin fences markdown, sin backticks, sin texto adicional antes ni después del JSON. Si tu respuesta anterior fue buena pero tuvo formato incorrecto, esta vez asegurate de emitir JSON puro.`;
+IMPORTANTE: Tu respuesta anterior fue rechazada porque contenía fences markdown (\`\`\`json), backticks, o texto antes/después del objeto JSON. Esta vez responde EXCLUSIVAMENTE con el objeto JSON crudo, sin fences markdown, sin backticks, sin texto adicional antes ni después del JSON. Si tu respuesta anterior fue buena pero tuvo formato incorrecto, esta vez asegúrate de emitir JSON puro.`;
 
 // ─── Markdown fence stripper ───────────────────────────────────────────────────
 
@@ -275,7 +275,7 @@ export async function generateCrossFitSession(
       : input.wodFormat;
 
   const userPrompt = [
-    "Generá la sesión con estos parámetros:",
+    "Genera la sesión con estos parámetros:",
     "",
     `- Duración total objetivo: ${input.durationMinutes} min.`,
     `- Strength/Skill: ${input.strengthSkill}.`,

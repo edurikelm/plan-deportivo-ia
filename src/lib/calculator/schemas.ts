@@ -79,7 +79,7 @@ export type { RecordSource, SavedWeightRecord };
 
 export const VISION_MODEL = "MiniMax-M3";
 
-export const VISION_SYSTEM_PROMPT = `Sos un asistente que identifica el equipamiento en una foto de una barra de levantamiento. Tu única tarea es devolver un objeto JSON válido con este esquema exacto:
+export const VISION_SYSTEM_PROMPT = `Eres un asistente que identifica el equipamiento en una foto de una barra de levantamiento. Tu única tarea es devolver un objeto JSON válido con este esquema exacto:
 
 {
   "barKg": number,        // peso de la barra sola, en kg. Defaults: Olympic=20, Women's=15.
@@ -93,13 +93,13 @@ export const VISION_SYSTEM_PROMPT = `Sos un asistente que identifica el equipami
 }
 
 Reglas:
-1. Si no podés identificar la barra, devolvé barKg = 20 (default Olympic) y marcalo
+1. Si no puedes identificar la barra, devuelve barKg = 20 (default Olympic) y márcalo
    con un campo "uncertain": true. El usuario va a confirmar manualmente.
-2. Identificá los discos por color y tamaño, no por marcas. Las marcas pueden estar
+2. Identifica los discos por color y tamaño, no por marcas. Las marcas pueden estar
    gastadas o ser ilegibles.
 3. Si una placa parece estar entre dos tamaños estándar (ej. 1.25 kg vs 1 kg),
-   estimá a la baja y avisá con "uncertain": true en la entrada correspondiente.
-4. Devolvé SOLO el JSON. Sin texto antes ni después. Sin fences markdown.`;
+   estima a la baja y avisa con "uncertain": true en la entrada correspondiente.
+4. Devuelve SOLO el JSON. Sin texto antes ni después. Sin fences markdown.`;
 
 // ─── M3 vision call ─────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ export async function calculateBreakdownFromImage(
   // Build the message content parts array — image_url is MiniMax-specific, not in the OpenAI SDK types
   type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
   const contentParts: ContentPart[] = [
-    { type: "text", text: "Identificá los pesos en esta barra." },
+    { type: "text", text: "Identifica los pesos en esta barra." },
     { type: "image_url", image_url: { url: dataUrl } },
   ];
 

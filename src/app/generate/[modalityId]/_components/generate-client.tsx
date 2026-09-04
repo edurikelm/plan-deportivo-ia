@@ -208,7 +208,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
   // button is a one-click action with confirmation, not a target for new-tab.
   function handleBack() {
     if (hasUnpersistedWork) {
-      const ok = window.confirm("Tenés cambios sin guardar. ¿Salir?");
+      const ok = window.confirm("Tienes cambios sin guardar. ¿Salir?");
       if (!ok) return;
     }
     router.push("/classes");
@@ -472,7 +472,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
       focusMovement: loaded.input.focusMovement ?? "",
       considerations: loaded.input.considerations ?? "",
     });
-    toast.success("Sesión cargada - listo para regenerar o editar");
+    toast.success("Sesión cargada - lista para regenerar o editar");
   }
 
   // Delete a session from the mini-history. Mirrors the same pattern as
@@ -498,7 +498,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
     if (!validateAndSetErrors()) return;
 
     if (hasPendingEdit) {
-      if (!window.confirm("Tenés cambios sin guardar. ¿Descartarlos?")) return;
+      if (!window.confirm("Tienes cambios sin guardar. ¿Descartarlos?")) return;
       setEditedMarkdown(null);
       setMode("view");
     }
@@ -629,7 +629,7 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
             </p>
             <p className="text-bone mb-1">Esta modalidad no existe.</p>
             <p className="text-sm text-mute leading-relaxed mb-6">
-              Volvé al catálogo para elegir una modalidad.
+              Vuelve al catálogo para elegir una modalidad.
             </p>
             <Button
               variant="ghost"
@@ -1115,12 +1115,9 @@ export function GenerateClient({ modalityId }: GenerateClientProps) {
               Sesiones recientes
             </p>
             {recentSessions.length === 0 ? (
-              <div className="border border-hairline rounded-sm bg-canvas/40 p-4">
-                <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-2">
-                  Vacío
-                </p>
+              <div className="border border-hairline rounded-sm bg-canvas/40 px-4 py-3">
                 <p className="font-sans text-sm text-mute leading-relaxed">
-                  Generá una sesión y guardala. Las últimas 5 que persistas aparecen acá.
+                  Genera una sesión y guárdala. Las últimas 5 que persistas aparecen acá.
                 </p>
               </div>
             ) : (
