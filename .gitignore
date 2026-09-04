@@ -39,6 +39,14 @@ test-stdout.txt
 test-stderr.txt
 test-output.txt
 
+# Next.js build scratch output (transient logs from manual `npm run build`)
+build-stdout.txt
+build-stderr.txt
+
+# ESLint scratch output (transient logs from manual `npm run lint`)
+lint-stdout.txt
+lint-stderr.txt
+
 # Git scratch output (transient logs from manual commit/push sessions)
 commit-out.txt
 commit-err.txt
