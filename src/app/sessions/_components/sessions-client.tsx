@@ -423,9 +423,9 @@ function FullEmptyState() {
       <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mb-2">
         Vacío
       </p>
-      <p className="text-bone mb-1">No tenés sesiones guardadas.</p>
+      <p className="text-bone mb-1">No tienes sesiones guardadas.</p>
       <p className="text-sm text-mute leading-relaxed mb-6">
-        Generá una sesión y guardala. Todas las que persistas aparecen acá.
+        Genera una sesión y guárdala. Todas las que persistas aparecen acá.
       </p>
       <Button
         variant="ghost"
