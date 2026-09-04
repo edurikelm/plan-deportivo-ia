@@ -39,8 +39,15 @@ test-stdout.txt
 test-stderr.txt
 test-output.txt
 
+# Git scratch output (transient logs from manual commit/push sessions)
+commit-out.txt
+commit-err.txt
+push-out.txt
+push-err.txt
+
 # OpenCode
 .opencode/*.tmp
+.opencode/*.moved-*
 
 # Impeccable (external tool runtime data — sessions, snapshots, server tokens)
 .impeccable/
