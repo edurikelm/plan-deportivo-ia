@@ -26,7 +26,7 @@ export default function ClassesPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.10em] text-mute mb-3">
             Herramientas
           </p>
-          <ul className="space-y-px bg-hairline rounded-none overflow-hidden">
+          <ul className="space-y-2">
             {MODALITIES.map((modality) => (
               <li key={modality.id} className="bg-panel">
                 <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
@@ -63,7 +63,7 @@ export default function ClassesPage() {
               </li>
             ))}
 
-            <li className="bg-panel">
+            <li className="bg-panel border border-hairline">
               <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
                 <header className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline">
                   <h2 className="font-display italic font-semibold text-2xl leading-none tracking-tight text-bone">
@@ -89,14 +89,14 @@ export default function ClassesPage() {
                 </footer>
               </article>
             </li>
-            <li className="bg-panel">
+            <li className="bg-panel border border-hairline">
               <article className="chalk-card border-0 hover:border-l-hairline-strong transition-colors">
                 <header className="flex items-baseline justify-between gap-4 pb-3 border-b border-hairline">
                   <h2 className="font-display italic font-semibold text-2xl leading-none tracking-tight text-bone">
-                    Ejercicios guardados
+                    Lista de ejercicios
                   </h2>
                   <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0">
-                    Historial
+                    Ejercicios
                   </span>
                 </header>
                 <p className="mt-4 text-sm text-mute leading-relaxed">
