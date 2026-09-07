@@ -35,3 +35,11 @@ export {
   type ExerciseIndexEntry,
 } from "./exercise-index";
 export { suggestRepsForExercise } from "./suggest-reps";
+export {
+  TYPICAL_EXERCISES,
+  findTypicalByName,
+  getTypicalExerciseNames,
+  mergeTypicalAndHistory,
+  type ExerciseCategory,
+  type TypicalExercise,
+} from "./typical-exercises";
