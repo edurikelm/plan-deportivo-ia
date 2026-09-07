@@ -61,6 +61,7 @@ function Chip({ name, active, onSelect, onRemove }: ChipProps) {
         onClick={() => onSelect(name)}
         aria-pressed={active}
         aria-label={`Seleccionar ${name}`}
+        tabIndex={-1}
         className="focus:outline-none focus-visible:underline"
       >
         {name}
@@ -72,7 +73,8 @@ function Chip({ name, active, onSelect, onRemove }: ChipProps) {
           onRemove(name);
         }}
         aria-label={`Quitar ${name} de favoritos`}
-        className="inline-flex items-center justify-center rounded-sm size-4 hover:bg-foreground/10 transition-colors"
+        tabIndex={-1}
+        className="inline-flex items-center justify-center rounded-sm size-5 min-h-6 min-w-6 hover:bg-foreground/10 transition-colors"
       >
         <X className="size-3" aria-hidden />
       </button>
