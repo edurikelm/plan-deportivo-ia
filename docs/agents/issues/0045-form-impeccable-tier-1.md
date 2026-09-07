@@ -1,6 +1,6 @@
 ---
 label: refinement
-status: open
+status: closed
 parent: 0044
 depends_on: []
 blocks: []
