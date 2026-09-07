@@ -2,7 +2,7 @@
  * Component tests for `SaveRecordForm` (issue 0037 + 0043 + 0044).
  *
  * Covers the form fields (Ejercicio, Repeticiones, Marcar como 1RM,
- * Agregar a favoritos), the disabled state when `reps` is invalid, the
+ * Marcar como favorito), the disabled state when `reps` is invalid, the
  * payload passed to `onSaved` on submit, the favorite-exercise chip row,
  * the datalist enrichment that ships with the chip row, and the
  * add/remove favorite behavior driven by the form's checkbox and the
@@ -57,7 +57,7 @@ describe("SaveRecordForm — issue 0037 fields", () => {
     expect(flagCheckbox.checked).toBe(false);
 
     const favoriteCheckbox = screen.getByLabelText(
-      "Agregar a favoritos",
+      "Marcar como favorito",
     ) as HTMLInputElement;
     expect(favoriteCheckbox).toBeInTheDocument();
     expect(favoriteCheckbox.type).toBe("checkbox");
@@ -127,9 +127,40 @@ describe("SaveRecordForm — issue 0037 fields", () => {
     expect(record.exercise).toBe("Overhead Press");
     expect(record.isOneRepMax).toBe(true);
   });
+
+  it("shows a loading state on the Guardar button while the save is in flight (0045 M1)", async () => {
+    const user = userEvent.setup();
+    // The default onSaved mock does NOT unmount the form, so the form
+    // stays mounted in `submitting: true` state right after the click.
+    // This lets us observe the loading affordance without faking timers.
+    render(<SaveRecordForm {...defaultProps} />);
+
+    await user.type(
+      screen.getByPlaceholderText("Ej. Back Squat"),
+      "Back Squat",
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar carga" }));
+
+    // The submit handler flips `submitting` synchronously and calls
+    // onSaved in the same tick. React 18 batches and re-renders, so by
+    // the time the next assertion runs, the form is in loading state.
+    const loadingButton = screen.getByRole("button", {
+      name: "Guardando carga",
+    });
+    expect(loadingButton).toBeInTheDocument();
+    expect(loadingButton).toBeDisabled();
+    // The icon swap is part of the contract — Loader2 with animate-spin
+    // replaced the idle BookmarkPlus. We check by className presence on
+    // the svg child.
+    expect(loadingButton.querySelector(".animate-spin")).toBeInTheDocument();
+    // The save still fires once with the right data.
+    expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
+    const record = defaultProps.onSaved.mock.calls[0][0];
+    expect(record.exercise).toBe("Back Squat");
+  });
 });
 
-// ─── Issue 0044 — favorite-exercise chip row + Agregar a favoritos ──────────
+// ─── Issue 0044 — favorite-exercise chip row + Marcar como favorito ──────────
 
 describe("SaveRecordForm — issue 0044 favorites", () => {
   beforeEach(() => {
@@ -260,7 +291,7 @@ describe("SaveRecordForm — issue 0044 favorites", () => {
     render(<SaveRecordForm {...defaultProps} defaultExercise="Back Squat" />);
 
     const favoriteCheckbox = screen.getByLabelText(
-      "Agregar a favoritos",
+      "Marcar como favorito",
     ) as HTMLInputElement;
     expect(favoriteCheckbox.checked).toBe(true);
   });
@@ -270,7 +301,7 @@ describe("SaveRecordForm — issue 0044 favorites", () => {
     render(<SaveRecordForm {...defaultProps} defaultExercise="Bench Press" />);
 
     const favoriteCheckbox = screen.getByLabelText(
-      "Agregar a favoritos",
+      "Marcar como favorito",
     ) as HTMLInputElement;
     expect(favoriteCheckbox.checked).toBe(false);
   });
@@ -283,7 +314,7 @@ describe("SaveRecordForm — issue 0044 favorites", () => {
       screen.getByPlaceholderText("Ej. Back Squat"),
       "Incline Bench Press",
     );
-    await user.click(screen.getByLabelText("Agregar a favoritos"));
+    await user.click(screen.getByLabelText("Marcar como favorito"));
     await user.click(screen.getByRole("button", { name: "Guardar carga" }));
 
     expect(getFavorites()).toEqual(["Incline Bench Press"]);
@@ -297,7 +328,7 @@ describe("SaveRecordForm — issue 0044 favorites", () => {
 
     // Checkbox is pre-checked (Back Squat is a favorite). Uncheck it.
     const favoriteCheckbox = screen.getByLabelText(
-      "Agregar a favoritos",
+      "Marcar como favorito",
     ) as HTMLInputElement;
     expect(favoriteCheckbox.checked).toBe(true);
     await user.click(favoriteCheckbox);
