@@ -6,12 +6,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   computeTotals,
+  getTypicalExerciseNames,
+  mergeTypicalAndHistory,
   normalizeExerciseName,
   suggestRepsForExercise,
   type DiscRow,
   type SavedWeightRecord,
 } from "@/lib/calculator";
 import { addRecord, getRecords, getUniqueExercises, isQuotaError } from "@/lib/storage";
+import { TypicalExerciseChips } from "./typical-exercise-chips";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +73,17 @@ export function SaveRecordForm({
   // reopens the form to see new suggestions. The form is short-lived
   // (mounts on click, unmounts on save/cancel/Escape), so a stale
   // suggestion list at most shows a missed recent save.
-  const suggestions = useMemo(() => getUniqueExercises(), []);
+  //
+  // As of issue 0043 the suggestion list is the union of the curated
+  // typical-exercise catalog (Spanish canonical names) and the coach's own
+  // history. The merge keeps the typical names first so the canonical
+  // spelling always wins on case-insensitive ties — a coach who previously
+  // saved "Back Squat" will still see the typical "Sentadilla trasera"
+  // entry appear before their freeform variant.
+  const suggestions = useMemo(
+    () => mergeTypicalAndHistory(getTypicalExerciseNames(), getUniqueExercises()),
+    [],
+  );
 
   // ── Auto-focus on mount. The exercise input must receive focus before
   //    the coach can interact with the form. Use a microtask delay so the
@@ -145,6 +158,7 @@ export function SaveRecordForm({
       onSubmit={handleSubmit}
       className="border border-hairline rounded-sm bg-panel/60 p-3 space-y-2"
     >
+      <TypicalExerciseChips value={exercise} onSelect={setExercise} />
       <div className="flex items-center gap-2">
         <label
           htmlFor={`${listId}-input`}
