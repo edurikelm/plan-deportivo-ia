@@ -1,17 +1,21 @@
 /**
- * Component tests for `SaveRecordForm` (issue 0037 + issue 0043).
+ * Component tests for `SaveRecordForm` (issue 0037 + 0043 + 0044).
  *
- * Covers the new fields (`Repeticiones` input + `Marcar como 1RM` checkbox),
- * the disabled state when `reps` is invalid, the payload passed to
- * `onSaved` on submit, the typical-exercise chip row, and the datalist
- * enrichment that ships with the chip row. Uses the project pattern
- * (render + userEvent), not the red-green TDD cycle reserved for pure
- * helpers.
+ * Covers the form fields (Ejercicio, Repeticiones, Marcar como 1RM,
+ * Agregar a favoritos), the disabled state when `reps` is invalid, the
+ * payload passed to `onSaved` on submit, the favorite-exercise chip row,
+ * the datalist enrichment that ships with the chip row, and the
+ * add/remove favorite behavior driven by the form's checkbox and the
+ * chip's `×` button.
+ *
+ * Uses the project pattern (render + userEvent), not the red-green TDD
+ * cycle reserved for pure helpers.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SaveRecordForm } from "./save-record-form";
+import { addFavorite, getFavorites } from "@/lib/storage";
 import { resetLocalStorage } from "../../../../../vitest.setup";
 
 // ─── Default props ───────────────────────────────────────────────────────────
@@ -35,26 +39,29 @@ describe("SaveRecordForm — issue 0037 fields", () => {
   // renders don't leak into the next test's `getBy*` queries.
   afterEach(cleanup);
 
-  it("renders the three inputs (Ejercicio, Repeticiones, Marcar como 1RM)", () => {
+  it("renders the inputs and checkboxes (Ejercicio, Repeticiones, 1RM, Favorito)", () => {
     render(<SaveRecordForm {...defaultProps} />);
 
-    // Ejercicio input is the only text input (with placeholder "Ej. Back Squat").
     expect(screen.getByPlaceholderText("Ej. Back Squat")).toBeInTheDocument();
 
-    // Repeticiones is a number input. The initial value is 1 (the no-data
-    // default of `suggestRepsForExercise`).
     const repsInput = screen.getByLabelText("Repeticiones") as HTMLInputElement;
     expect(repsInput).toBeInTheDocument();
     expect(repsInput.type).toBe("number");
     expect(repsInput.value).toBe("1");
 
-    // Checkbox is unchecked by default.
     const flagCheckbox = screen.getByLabelText(
       "Marcar como 1RM",
     ) as HTMLInputElement;
     expect(flagCheckbox).toBeInTheDocument();
     expect(flagCheckbox.type).toBe("checkbox");
     expect(flagCheckbox.checked).toBe(false);
+
+    const favoriteCheckbox = screen.getByLabelText(
+      "Agregar a favoritos",
+    ) as HTMLInputElement;
+    expect(favoriteCheckbox).toBeInTheDocument();
+    expect(favoriteCheckbox.type).toBe("checkbox");
+    expect(favoriteCheckbox.checked).toBe(false);
   });
 
   it("does not call onSaved when reps is 0 (submit button stays disabled)", async () => {
@@ -71,7 +78,6 @@ describe("SaveRecordForm — issue 0037 fields", () => {
     const submitButton = screen.getByRole("button", { name: "Guardar carga" });
     expect(submitButton).toBeDisabled();
 
-    // Try to submit anyway — the form's defensive guard prevents it.
     await user.click(submitButton);
     expect(defaultProps.onSaved).not.toHaveBeenCalled();
   });
@@ -106,7 +112,7 @@ describe("SaveRecordForm — issue 0037 fields", () => {
 
     await user.type(
       screen.getByPlaceholderText("Ej. Back Squat"),
-      "Press militar",
+      "Overhead Press",
     );
     const flagCheckbox = screen.getByLabelText(
       "Marcar como 1RM",
@@ -118,12 +124,14 @@ describe("SaveRecordForm — issue 0037 fields", () => {
 
     expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
     const record = defaultProps.onSaved.mock.calls[0][0];
-    expect(record.exercise).toBe("Press militar");
+    expect(record.exercise).toBe("Overhead Press");
     expect(record.isOneRepMax).toBe(true);
   });
 });
 
-describe("SaveRecordForm — issue 0043 typical-exercise chips", () => {
+// ─── Issue 0044 — favorite-exercise chip row + Agregar a favoritos ──────────
+
+describe("SaveRecordForm — issue 0044 favorites", () => {
   beforeEach(() => {
     resetLocalStorage();
     defaultProps.onSaved.mockReset();
@@ -132,90 +140,195 @@ describe("SaveRecordForm — issue 0043 typical-exercise chips", () => {
 
   afterEach(cleanup);
 
-  it("renders the typical-exercise chip group", () => {
+  it("does NOT render the chip row when there are no favorites", () => {
     render(<SaveRecordForm {...defaultProps} />);
     expect(
-      screen.getByRole("group", { name: "Ejercicios típicos" }),
+      screen.queryByRole("group", { name: "Ejercicios favoritos" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the chip row with the coach's favorites (one chip per favorite)", () => {
+    // Seed two favorites before opening the form. The chip row reads the
+    // storage state once at mount, so seeds placed before render are
+    // picked up.
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+
+    render(<SaveRecordForm {...defaultProps} />);
+
+    const group = screen.getByRole("group", { name: "Ejercicios favoritos" });
+    expect(
+      within(group).getByRole("button", { name: "Seleccionar Back Squat" }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole("button", { name: "Seleccionar Bench Press" }),
     ).toBeInTheDocument();
   });
 
-  it("surfaces the six most common movements as chips (AC requirement)", () => {
-    render(<SaveRecordForm {...defaultProps} />);
-    const group = screen.getByRole("group", { name: "Ejercicios típicos" });
-    for (const required of [
-      "Sentadilla trasera",
-      "Peso muerto convencional",
-      "Press banca",
-      "Press militar",
-      "Remo con barra",
-      "Dominada",
-    ]) {
-      expect(
-        within(group).getByRole("button", {
-          name: `Seleccionar ${required}`,
-        }),
-      ).toBeInTheDocument();
-    }
-  });
-
-  it("clicking a chip fills the input with the canonical Spanish name", async () => {
+  it("clicking a chip fills the input with the favorite name", async () => {
+    addFavorite("Conventional Deadlift");
     const user = userEvent.setup();
     render(<SaveRecordForm {...defaultProps} />);
 
     const chip = screen.getByRole("button", {
-      name: "Seleccionar Press banca",
+      name: "Seleccionar Conventional Deadlift",
     });
     await user.click(chip);
 
     const exerciseInput = screen.getByPlaceholderText(
       "Ej. Back Squat",
     ) as HTMLInputElement;
-    expect(exerciseInput.value).toBe("Press banca");
+    expect(exerciseInput.value).toBe("Conventional Deadlift");
   });
 
   it("highlights the chip whose name matches the input (active state)", async () => {
-    const user = userEvent.setup();
-    render(<SaveRecordForm {...defaultProps} />);
-
-    // Type a name that matches a typical, case-insensitive.
-    const exerciseInput = screen.getByPlaceholderText("Ej. Back Squat");
-    await user.type(exerciseInput, "press BANCA");
-
-    const chip = screen.getByRole("button", {
-      name: "Seleccionar Press banca",
-    });
-    expect(chip).toHaveAttribute("data-active", "true");
-    expect(chip).toHaveAttribute("aria-pressed", "true");
-
-    // Sanity: an unrelated chip is NOT active.
-    const otherChip = screen.getByRole("button", {
-      name: "Seleccionar Dominada",
-    });
-    expect(otherChip).toHaveAttribute("data-active", "false");
-    expect(otherChip).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("does NOT highlight any chip for a freeform (non-catalog) name", async () => {
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
     const user = userEvent.setup();
     render(<SaveRecordForm {...defaultProps} />);
 
     const exerciseInput = screen.getByPlaceholderText("Ej. Back Squat");
-    await user.type(exerciseInput, "Pull-through con banda");
+    await user.type(exerciseInput, "BACK squat");
 
-    const group = screen.getByRole("group", { name: "Ejercicios típicos" });
-    // We use `data-active` (which is a stable test hook the chip
-    // component sets unconditionally) instead of
-    // `getAllByRole("button", { pressed: true })`. The ARIA role matcher
-    // has subtle behavior when zero elements match the filter and is
-    // harder to keep stable across testing-library versions.
-    const allChips = within(group).getAllByRole("button");
-    const activeChips = allChips.filter(
-      (b) => b.getAttribute("data-active") === "true",
+    // The chip body button reflects the active state via `aria-pressed`
+    // (the accessibility contract); `data-active` lives on the wrapper
+    // span that the test reaches via `closest()` to avoid coupling to
+    // the inner DOM layout.
+    const matching = screen.getByRole("button", {
+      name: "Seleccionar Back Squat",
+    });
+    expect(matching).toHaveAttribute("aria-pressed", "true");
+    expect(matching.closest("[data-active]")).toHaveAttribute(
+      "data-active",
+      "true",
     );
-    expect(activeChips).toHaveLength(0);
+
+    const other = screen.getByRole("button", {
+      name: "Seleccionar Bench Press",
+    });
+    expect(other).toHaveAttribute("aria-pressed", "false");
+    expect(other.closest("[data-active]")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
   });
 
-  it("seeds the datalist with the typical names (autocomplete on type)", () => {
+  it("clicking the chip's × removes the favorite from storage and from the row", async () => {
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+    expect(getFavorites()).toEqual(["Bench Press", "Back Squat"]);
+
+    const user = userEvent.setup();
+    render(<SaveRecordForm {...defaultProps} />);
+
+    const removeButton = screen.getByRole("button", {
+      name: "Quitar Back Squat de favoritos",
+    });
+    await user.click(removeButton);
+
+    // Storage is updated.
+    expect(getFavorites()).toEqual(["Bench Press"]);
+    // The chip disappears from the row.
+    expect(
+      screen.queryByRole("button", { name: "Seleccionar Back Squat" }),
+    ).not.toBeInTheDocument();
+    // The other chip stays.
+    expect(
+      screen.getByRole("button", { name: "Seleccionar Bench Press" }),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking the chip's × does NOT fill the input (stopPropagation)", async () => {
+    addFavorite("Back Squat");
+    const user = userEvent.setup();
+    render(<SaveRecordForm {...defaultProps} />);
+
+    const removeButton = screen.getByRole("button", {
+      name: "Quitar Back Squat de favoritos",
+    });
+    await user.click(removeButton);
+
+    const exerciseInput = screen.getByPlaceholderText(
+      "Ej. Back Squat",
+    ) as HTMLInputElement;
+    // The input stays empty — only the favorite is removed.
+    expect(exerciseInput.value).toBe("");
+  });
+
+  it("pre-checks the favorite checkbox when the defaultExercise is already a favorite", () => {
+    addFavorite("Back Squat");
+    render(<SaveRecordForm {...defaultProps} defaultExercise="Back Squat" />);
+
+    const favoriteCheckbox = screen.getByLabelText(
+      "Agregar a favoritos",
+    ) as HTMLInputElement;
+    expect(favoriteCheckbox.checked).toBe(true);
+  });
+
+  it("does NOT pre-check the favorite checkbox when defaultExercise is not a favorite", () => {
+    addFavorite("Back Squat");
+    render(<SaveRecordForm {...defaultProps} defaultExercise="Bench Press" />);
+
+    const favoriteCheckbox = screen.getByLabelText(
+      "Agregar a favoritos",
+    ) as HTMLInputElement;
+    expect(favoriteCheckbox.checked).toBe(false);
+  });
+
+  it("persists the exercise as a favorite when the checkbox is checked on submit", async () => {
+    const user = userEvent.setup();
+    render(<SaveRecordForm {...defaultProps} />);
+
+    await user.type(
+      screen.getByPlaceholderText("Ej. Back Squat"),
+      "Incline Bench Press",
+    );
+    await user.click(screen.getByLabelText("Agregar a favoritos"));
+    await user.click(screen.getByRole("button", { name: "Guardar carga" }));
+
+    expect(getFavorites()).toEqual(["Incline Bench Press"]);
+    expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes the exercise from favorites when the checkbox is unchecked on submit AND it was already a favorite", async () => {
+    addFavorite("Back Squat");
+    const user = userEvent.setup();
+    render(<SaveRecordForm {...defaultProps} defaultExercise="Back Squat" />);
+
+    // Checkbox is pre-checked (Back Squat is a favorite). Uncheck it.
+    const favoriteCheckbox = screen.getByLabelText(
+      "Agregar a favoritos",
+    ) as HTMLInputElement;
+    expect(favoriteCheckbox.checked).toBe(true);
+    await user.click(favoriteCheckbox);
+    expect(favoriteCheckbox.checked).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Guardar carga" }));
+
+    // The record is still saved — unchecking only affects favorites.
+    expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onSaved.mock.calls[0][0].exercise).toBe(
+      "Back Squat",
+    );
+    // But the favorite is removed.
+    expect(getFavorites()).toEqual([]);
+  });
+
+  it("does NOT add the exercise to favorites when the checkbox stays unchecked on submit", async () => {
+    const user = userEvent.setup();
+    render(<SaveRecordForm {...defaultProps} />);
+
+    await user.type(
+      screen.getByPlaceholderText("Ej. Back Squat"),
+      "Back Squat",
+    );
+    // Checkbox is unchecked by default; leave it that way.
+    await user.click(screen.getByRole("button", { name: "Guardar carga" }));
+
+    expect(getFavorites()).toEqual([]);
+  });
+
+  it("seeds the datalist with English catalog names (autocomplete on type)", () => {
     render(<SaveRecordForm {...defaultProps} />);
     const exerciseInput = screen.getByPlaceholderText("Ej. Back Squat");
     const datalistId = exerciseInput.getAttribute("list");
@@ -225,47 +338,34 @@ describe("SaveRecordForm — issue 0043 typical-exercise chips", () => {
     const options = Array.from(datalist!.querySelectorAll("option")).map(
       (o) => (o as HTMLOptionElement).value,
     );
-    // Spot-check a handful of typical names — exhaustive coverage lives
-    // in typical-exercises.test.ts.
     for (const required of [
-      "Sentadilla trasera",
-      "Press banca",
-      "Dominada",
-      "Press militar",
+      "Back Squat",
+      "Bench Press",
+      "Conventional Deadlift",
+      "Overhead Press",
+      "Barbell Row",
+      "Pull-up",
     ]) {
       expect(options).toContain(required);
     }
+    // Sanity: no Spanish leftovers from 0043.
+    expect(options).not.toContain("Sentadilla trasera");
+    expect(options).not.toContain("Press banca");
   });
 
-  it("persists the canonical Spanish name when submitted via a chip", async () => {
-    const user = userEvent.setup();
-    render(<SaveRecordForm {...defaultProps} />);
-
-    // Click the chip instead of typing the name.
-    await user.click(
-      screen.getByRole("button", { name: "Seleccionar Peso muerto convencional" }),
-    );
-
-    // reps defaults to 1 from suggestRepsForExercise with no history.
-    await user.click(screen.getByRole("button", { name: "Guardar carga" }));
-
-    expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
-    const record = defaultProps.onSaved.mock.calls[0][0];
-    expect(record.exercise).toBe("Peso muerto convencional");
-  });
-
-  it("still accepts a freeform name not in the typical catalog", async () => {
+  it("still accepts a freeform name not in the catalog or favorites", async () => {
     const user = userEvent.setup();
     render(<SaveRecordForm {...defaultProps} />);
 
     await user.type(
       screen.getByPlaceholderText("Ej. Back Squat"),
-      "Pull-through con banda",
+      "Pull-through with band",
     );
     await user.click(screen.getByRole("button", { name: "Guardar carga" }));
 
     expect(defaultProps.onSaved).toHaveBeenCalledTimes(1);
-    const record = defaultProps.onSaved.mock.calls[0][0];
-    expect(record.exercise).toBe("Pull-through con banda");
+    expect(defaultProps.onSaved.mock.calls[0][0].exercise).toBe(
+      "Pull-through with band",
+    );
   });
 });
