@@ -6,12 +6,23 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   computeTotals,
+  getTypicalExerciseNames,
+  mergeTypicalAndHistory,
   normalizeExerciseName,
   suggestRepsForExercise,
   type DiscRow,
   type SavedWeightRecord,
 } from "@/lib/calculator";
-import { addRecord, getRecords, getUniqueExercises, isQuotaError } from "@/lib/storage";
+import {
+  addFavorite,
+  addRecord,
+  getFavorites,
+  getRecords,
+  getUniqueExercises,
+  isQuotaError,
+  removeFavorite,
+} from "@/lib/storage";
+import { FavoriteExerciseChips } from "./favorite-exercise-chips";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -33,15 +44,15 @@ interface SaveRecordFormProps {
  * The form is fully controlled by its parent — the parent decides when it
  * is open (it is mounted only when open) and reacts to `onSaved` / `onCancel`
  * to close it. This component is responsible for input validation, the
- * autocomplete datalist, the submit lifecycle, and the keyboard handling
- * (auto-focus on mount, Escape to cancel).
+ * autocomplete datalist, the favorite-exercise chip row, the submit
+ * lifecycle, and the keyboard handling (auto-focus on mount, Escape to
+ * cancel).
  *
- * Since issue 0037 the form also collects `reps` and an optional
- * `isOneRepMax` flag. `reps` is initialized from
- * `suggestRepsForExercise(records, exercise)` at mount, so the coach
- * gets a sensible default based on their previous sets of the same
- * exercise. The default is a one-shot value at form open — the coach
- * can override it freely.
+ * Issue 0037 added `reps` and `isOneRepMax`. Issue 0043 added the
+ * typical-exercise chip row. Issue 0044 redesigned the chip row to
+ * show the coach's *favorites* instead of the curated catalog, and
+ * added a "Agregar a favoritos" checkbox so saving a record can also
+ * star (or un-star) the exercise in one go.
  */
 export function SaveRecordForm({
   currentState,
@@ -59,18 +70,42 @@ export function SaveRecordForm({
     return suggestRepsForExercise(records, defaultExercise ?? "");
   });
   const [isOneRepMax, setIsOneRepMax] = useState(false);
+  // The favorite flag starts from the current state of storage: if the
+  // default exercise is already a favorite, the checkbox is pre-checked so
+  // the coach can un-check to remove in the same submission. Once the
+  // form is open, the checkbox is the source of truth — typing a new name
+  // does NOT re-evaluate against storage (the form is a snapshot).
+  const [isFavorite, setIsFavorite] = useState(() => {
+    const initial = defaultExercise ?? "";
+    if (initial === "") return false;
+    // We don't import isFavorite from calculator; storage is the only IO
+    // boundary in this component. The pure helper is used in tests and
+    // by the FavoriteExerciseChips component itself.
+    return getFavorites().some(
+      (n) => n.toLowerCase() === initial.trim().toLowerCase(),
+    );
+  });
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const repsInputRef = useRef<HTMLInputElement | null>(null);
   const listId = useId();
   const repsId = useId();
   const flagId = useId();
-  // Suggestions are computed once when the form opens and don't
-  // auto-refresh: the autocomplete is a hint, not a live picker. The coach
-  // reopens the form to see new suggestions. The form is short-lived
-  // (mounts on click, unmounts on save/cancel/Escape), so a stale
-  // suggestion list at most shows a missed recent save.
-  const suggestions = useMemo(() => getUniqueExercises(), []);
+  const favoriteId = useId();
+  // The favorite list is read once when the form opens and not refreshed.
+  // Adding / removing a favorite from this form commits the change to
+  // storage, but the chip row is re-rendered via the storage event — so
+  // the coach sees the chip disappear immediately. We use a state seed
+  // (rather than the live read) so the initial render is deterministic
+  // in tests and matches the "snapshot" mental model of the form.
+  const [favorites, setFavorites] = useState<string[]>(() => getFavorites());
+  // The datalist seeds with the curated typical catalog (English names
+  // as of 0044) and the coach's own history. Typical names go first so
+  // the canonical English spelling always wins on case-insensitive ties.
+  const suggestions = useMemo(
+    () => mergeTypicalAndHistory(getTypicalExerciseNames(), getUniqueExercises()),
+    [],
+  );
 
   // ── Auto-focus on mount. The exercise input must receive focus before
   //    the coach can interact with the form. Use a microtask delay so the
@@ -118,6 +153,18 @@ export function SaveRecordForm({
         isOneRepMax,
       };
       addRecord(record);
+      // Sync the favorite list with the checkbox: checked → ensure starred;
+      // unchecked → if the name is already a favorite, remove it. Idempotent
+      // when the state already matches the storage, so the coach can save
+      // a record without re-starring a name that was already there.
+      const wasFavorite = getFavorites().some(
+        (n) => n.toLowerCase() === name.toLowerCase(),
+      );
+      if (isFavorite && !wasFavorite) {
+        addFavorite(name);
+      } else if (!isFavorite && wasFavorite) {
+        removeFavorite(name);
+      }
       toast.success("Carga guardada");
       onSaved(record);
     } catch (err) {
@@ -138,6 +185,20 @@ export function SaveRecordForm({
   const repsValid = Number.isFinite(reps) && reps >= 1;
   const canSubmit = trimmed !== "" && repsValid && !submitting;
 
+  function handleSelectFavorite(name: string) {
+    setExercise(name);
+    // The form becomes a snapshot at this point: filling from a chip is
+    // not a reason to flip the favorite checkbox. The coach's previous
+    // intent (the checkbox state) is preserved.
+  }
+
+  function handleRemoveFavorite(name: string) {
+    // Remove from storage immediately so the chip disappears from the
+    // row. The form remains open — the coach can keep editing.
+    removeFavorite(name);
+    setFavorites(getFavorites());
+  }
+
   return (
     <form
       role="region"
@@ -145,6 +206,14 @@ export function SaveRecordForm({
       onSubmit={handleSubmit}
       className="border border-hairline rounded-sm bg-panel/60 p-3 space-y-2"
     >
+      {favorites.length > 0 && (
+        <FavoriteExerciseChips
+          favorites={favorites}
+          value={exercise}
+          onSelect={handleSelectFavorite}
+          onRemove={handleRemoveFavorite}
+        />
+      )}
       <div className="flex items-center gap-2">
         <label
           htmlFor={`${listId}-input`}
@@ -173,7 +242,7 @@ export function SaveRecordForm({
         ))}
       </datalist>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <label
           htmlFor={repsId}
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0"
@@ -210,6 +279,20 @@ export function SaveRecordForm({
             className="size-3.5 accent-signal"
           />
           Marcar como 1RM
+        </label>
+        <label
+          htmlFor={favoriteId}
+          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+        >
+          <input
+            id={favoriteId}
+            type="checkbox"
+            checked={isFavorite}
+            onChange={(e) => setIsFavorite(e.target.checked)}
+            aria-label="Agregar a favoritos"
+            className="size-3.5 accent-signal"
+          />
+          Agregar a favoritos
         </label>
       </div>
 

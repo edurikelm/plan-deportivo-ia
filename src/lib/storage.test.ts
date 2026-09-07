@@ -37,11 +37,16 @@ import {
   removeRecord,
   getRecentRecords,
   getUniqueExercises,
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  isFavorite,
   getCalculatorState,
   setCalculatorState,
   subscribeToSessions,
   subscribeToLastInput,
   BACKUP_VERSION,
+  type BackupShape,
   type PersistedLastInput,
 } from "@/lib/storage";
 import { resetLocalStorage } from "../../vitest.setup";
@@ -469,18 +474,20 @@ describe("importAllData", () => {
     };
     const result = importAllData(shape);
     expect(result.ok).toBe(true);
-    // Three singleton keys are written (`sessions`, `calculatorState`,
-    // `calculatorRecords`); `lastInputs: {}` contributes no entries
-    // because the for-loop over `Object.entries` has nothing to iterate.
+    // Four singleton keys are written (`sessions`, `calculatorState`,
+    // `calculatorRecords`, `calculatorFavorites`); `lastInputs: {}`
+    // contributes no entries because the for-loop over `Object.entries`
+    // has nothing to iterate. `calculatorFavorites` was added in 0044.
     expect(result.imported).toEqual(
       expect.arrayContaining([
         "sessions",
         "calculatorState",
         "calculatorRecords",
+        "calculatorFavorites",
       ]),
     );
     expect(result.imported).not.toContain("lastInput:crossfit");
-    expect(result.imported.length).toBe(3);
+    expect(result.imported.length).toBe(4);
     expect(result.errors).toEqual([]);
   });
 
@@ -745,6 +752,124 @@ describe("getUniqueExercises", () => {
 
   it("returns [] when there are no records", () => {
     expect(getUniqueExercises()).toEqual([]);
+  });
+});
+
+// ─── Favorites storage (issue 0044) ─────────────────────────────────────────
+
+describe("getFavorites / addFavorite / removeFavorite / isFavorite", () => {
+  it("returns [] when nothing is persisted", () => {
+    expect(getFavorites()).toEqual([]);
+  });
+
+  it("returns [] when the persisted value is corrupt JSON", () => {
+    localStorage.setItem("pd:calculator-favorites", "{not json");
+    expect(getFavorites()).toEqual([]);
+  });
+
+  it("returns [] when the persisted value is not an array", () => {
+    localStorage.setItem("pd:calculator-favorites", JSON.stringify({ a: 1 }));
+    expect(getFavorites()).toEqual([]);
+  });
+
+  it("filters out non-string entries defensively", () => {
+    localStorage.setItem(
+      "pd:calculator-favorites",
+      JSON.stringify(["Back Squat", 42, null, "Bench Press"]),
+    );
+    expect(getFavorites()).toEqual(["Back Squat", "Bench Press"]);
+  });
+
+  it("addFavorite prepends and dedupes case-insensitively", () => {
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+    addFavorite("BACK squat");
+    expect(getFavorites()).toEqual(["BACK squat", "Bench Press"]);
+  });
+
+  it("addFavorite is a no-op for empty / whitespace-only input", () => {
+    addFavorite("Back Squat");
+    addFavorite("");
+    addFavorite("   ");
+    expect(getFavorites()).toEqual(["Back Squat"]);
+  });
+
+  it("removeFavorite removes case-insensitively", () => {
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+    removeFavorite("BACK squat");
+    expect(getFavorites()).toEqual(["Bench Press"]);
+  });
+
+  it("removeFavorite is a no-op when the name is not present", () => {
+    addFavorite("Back Squat");
+    removeFavorite("Pull-up");
+    expect(getFavorites()).toEqual(["Back Squat"]);
+  });
+
+  it("isFavorite reflects the persisted state case-insensitively", () => {
+    addFavorite("Back Squat");
+    expect(isFavorite("Back Squat")).toBe(true);
+    expect(isFavorite("BACK squat")).toBe(true);
+    expect(isFavorite("Bench Press")).toBe(false);
+    expect(isFavorite("")).toBe(false);
+    expect(isFavorite("   ")).toBe(false);
+  });
+});
+
+describe("favorites in the backup roundtrip", () => {
+  it("exportAllData includes calculatorFavorites", () => {
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+    const backup = exportAllData();
+    expect(backup.data.calculatorFavorites).toEqual([
+      "Bench Press",
+      "Back Squat",
+    ]);
+  });
+
+  it("importAllData restores calculatorFavorites", () => {
+    const shape: BackupShape = {
+      exportedAt: "2026-09-02T10:00:00.000Z",
+      version: 1,
+      data: {
+        sessions: [],
+        calculatorState: { barKg: 20, discs: [] },
+        calculatorRecords: [],
+        calculatorFavorites: ["Back Squat", "Bench Press"],
+        lastInputs: {},
+      },
+    };
+    const result = importAllData(shape);
+    expect(result.ok).toBe(true);
+    expect(result.imported).toContain("calculatorFavorites");
+    expect(getFavorites()).toEqual(["Back Squat", "Bench Press"]);
+  });
+
+  it("importAllData defaults calculatorFavorites to [] when missing (backward compat)", () => {
+    // Older backups (pre-0044) do not have the calculatorFavorites key.
+    // The import must treat absence as an empty list, not crash.
+    const legacyShape = {
+      exportedAt: "2026-09-02T10:00:00.000Z",
+      version: 1,
+      data: {
+        sessions: [],
+        calculatorState: { barKg: 20, discs: [] },
+        calculatorRecords: [],
+        lastInputs: {},
+      },
+    } as unknown as BackupShape;
+    const result = importAllData(legacyShape);
+    expect(result.ok).toBe(true);
+    expect(getFavorites()).toEqual([]);
+  });
+});
+
+describe("clearAllData removes favorites", () => {
+  it("empties the favorites list as part of the pd:* purge", () => {
+    addFavorite("Back Squat");
+    clearAllData();
+    expect(getFavorites()).toEqual([]);
   });
 });
 
