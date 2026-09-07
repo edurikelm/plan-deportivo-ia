@@ -20,7 +20,8 @@ import {
 describe("TYPICAL_EXERCISES — catalog invariants", () => {
   it("has at least 20 entries", () => {
     // The datalist depends on a meaningful selection. Below 20 it would
-    // feel thin for a coach who trains with a barbell; we ship more.
+    // feel thin for a coach who trains with a barbell; we ship 32
+    // (0043 starter MVP + 0047 Olympic + CrossFit staples expansion).
     expect(TYPICAL_EXERCISES.length).toBeGreaterThanOrEqual(20);
   });
 
@@ -55,9 +56,11 @@ describe("TYPICAL_EXERCISES — catalog invariants", () => {
     }
   });
 
-  it("includes the six most common movements expected by the AC", () => {
-    // The AC names six exercises that the catalog must surface for the
-    // datalist. As of 0044 these are the English spellings.
+  it("includes the eight most common movements expected by the AC (0043 + 0047 expansion)", () => {
+    // The AC names exercises that the catalog must surface for the
+    // datalist. 0047 expanded the original 6 to 8, adding two of the
+    // most-requested movements (Push Press and Clean and Jerk) so the
+    // test exercises the new entries.
     const names = TYPICAL_EXERCISES.map((e) => e.name);
     for (const required of [
       "Back Squat",
@@ -66,6 +69,8 @@ describe("TYPICAL_EXERCISES — catalog invariants", () => {
       "Overhead Press",
       "Barbell Row",
       "Pull-up",
+      "Push Press",
+      "Clean and Jerk",
     ]) {
       expect(names).toContain(required);
     }
