@@ -2,20 +2,19 @@
 
 /**
  * Horizontally scrollable row of clickable chips for the coach's favorited
- * exercises (issue 0044). Each chip represents one exercise name from the
- * `favorites` prop (most recently favorited first) and renders two
- * affordances:
+ * exercises (issue 0044, refined by 0045). Each chip represents one exercise
+ * name from the `favorites` prop (most recently favorited first) and renders
+ * two affordances:
  *
  * - Click the chip body → fills the input via `onSelect(name)`.
  * - Click the trailing `×` → removes the name from favorites via
  *   `onRemove(name)`. The remove action stops propagation so it does not
  *   also fire the select.
  *
- * Visual: chips share the same `hairline` / `signal` / `bone` design tokens
- * used elsewhere in the calculator. The active chip — i.e. the one whose
- * name (case-insensitive, trimmed) matches `value` — is rendered with the
- * signal color so the coach gets visual confirmation that the exercise
- * they're about to save is the one they picked.
+ * Visual: chips follow the chip recipe in DESIGN.md: 2px radius, hairline
+ * border, mute text in pasivo, solid signal + signal-foreground in selected.
+ * The `.numeric-label` utility centralizes the mono + tabular-nums +
+ * 0.04em tracking that all small chip labels use.
  *
  * The component is purely presentational. The empty-state (whether to
  * render anything at all when `favorites.length === 0`) is the parent's
@@ -53,8 +52,8 @@ function Chip({ name, active, onSelect, onRemove }: ChipProps) {
       data-favorite={name}
       className={
         active
-          ? "inline-flex items-center gap-1 shrink-0 whitespace-nowrap rounded-full border border-signal bg-signal/15 pl-2.5 pr-1 py-1 font-mono text-[0.7rem] tracking-[0.04em] text-bone"
-          : "inline-flex items-center gap-1 shrink-0 whitespace-nowrap rounded-full border border-hairline bg-transparent pl-2.5 pr-1 py-1 font-mono text-[0.7rem] tracking-[0.04em] text-bone/70 transition-colors hover:border-bone/40 hover:text-bone"
+          ? "inline-flex items-center gap-1 shrink-0 whitespace-nowrap rounded-sm border border-transparent bg-signal text-signal-foreground pl-2.5 pr-1 py-1 numeric-label"
+          : "inline-flex items-center gap-1 shrink-0 whitespace-nowrap rounded-sm border border-hairline bg-transparent pl-2.5 pr-1 py-1 numeric-label text-mute transition-colors hover:text-bone"
       }
     >
       <button
@@ -62,7 +61,7 @@ function Chip({ name, active, onSelect, onRemove }: ChipProps) {
         onClick={() => onSelect(name)}
         aria-pressed={active}
         aria-label={`Seleccionar ${name}`}
-        className="focus:outline-none"
+        className="focus:outline-none focus-visible:underline"
       >
         {name}
       </button>
@@ -73,7 +72,7 @@ function Chip({ name, active, onSelect, onRemove }: ChipProps) {
           onRemove(name);
         }}
         aria-label={`Quitar ${name} de favoritos`}
-        className="inline-flex items-center justify-center rounded-full size-4 text-bone/40 hover:text-signal hover:bg-signal/15 transition-colors"
+        className="inline-flex items-center justify-center rounded-sm size-4 hover:bg-foreground/10 transition-colors"
       >
         <X className="size-3" aria-hidden />
       </button>

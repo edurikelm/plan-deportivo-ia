@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { BookmarkPlus, X } from "lucide-react";
+import { BookmarkPlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -204,7 +204,7 @@ export function SaveRecordForm({
       role="region"
       aria-label="Guardar carga con etiqueta"
       onSubmit={handleSubmit}
-      className="border border-hairline rounded-sm bg-panel/60 p-3 space-y-2"
+      className="border border-hairline rounded-none bg-popover p-3 space-y-2"
     >
       {favorites.length > 0 && (
         <FavoriteExerciseChips
@@ -289,10 +289,10 @@ export function SaveRecordForm({
             type="checkbox"
             checked={isFavorite}
             onChange={(e) => setIsFavorite(e.target.checked)}
-            aria-label="Agregar a favoritos"
+            aria-label="Marcar como favorito"
             className="size-3.5 accent-signal"
           />
-          Agregar a favoritos
+          Marcar como favorito
         </label>
       </div>
 
@@ -311,11 +311,20 @@ export function SaveRecordForm({
         <Button
           type="submit"
           disabled={!canSubmit}
-          aria-label="Guardar carga"
+          aria-label={submitting ? "Guardando carga" : "Guardar carga"}
           className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <BookmarkPlus className="size-3.5" aria-hidden />
-          Guardar
+          {submitting ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Guardando…
+            </>
+          ) : (
+            <>
+              <BookmarkPlus className="size-3.5" aria-hidden />
+              Guardar
+            </>
+          )}
         </Button>
       </div>
     </form>
