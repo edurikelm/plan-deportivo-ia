@@ -1,10 +1,13 @@
 /**
- * Tests for the curated typical-exercises catalog (issue 0043).
+ * Tests for the curated typical-exercises catalog (issue 0043, revised 0044).
  *
  * 100% line + branch coverage on the helpers. The catalog itself is a
  * static data table; we sanity-check its size, ordering, and the absence
- * of duplicates because those are the invariants the chip row and the
- * datalist depend on.
+ * of duplicates because those are the invariants the datalist and the
+ * chip-row wiring depend on.
+ *
+ * As of 0044 names are English-only (no `alias` field) and the canonical
+ * spellings are the English names.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -16,7 +19,7 @@ import {
 
 describe("TYPICAL_EXERCISES — catalog invariants", () => {
   it("has at least 20 entries", () => {
-    // The chip row depends on a meaningful selection. Below 20 it would
+    // The datalist depends on a meaningful selection. Below 20 it would
     // feel thin for a coach who trains with a barbell; we ship more.
     expect(TYPICAL_EXERCISES.length).toBeGreaterThanOrEqual(20);
   });
@@ -26,10 +29,14 @@ describe("TYPICAL_EXERCISES — catalog invariants", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("every entry has a non-empty, trimmed name", () => {
+  it("every entry has a non-empty, trimmed English name", () => {
     for (const e of TYPICAL_EXERCISES) {
       expect(e.name).toBeTruthy();
       expect(e.name).toBe(e.name.trim());
+      // English catalog: names should not contain accents (would mix
+      // the language convention). This is a soft check — we look for
+      // common Spanish/Portuguese accent characters and fail if found.
+      expect(e.name).not.toMatch(/[áéíóúñÁÉÍÓÚÑ]/);
     }
   });
 
@@ -49,17 +56,26 @@ describe("TYPICAL_EXERCISES — catalog invariants", () => {
   });
 
   it("includes the six most common movements expected by the AC", () => {
-    // The acceptance criteria names six exercises the chip row must surface.
+    // The AC names six exercises that the catalog must surface for the
+    // datalist. As of 0044 these are the English spellings.
     const names = TYPICAL_EXERCISES.map((e) => e.name);
     for (const required of [
-      "Sentadilla trasera",
-      "Peso muerto convencional",
-      "Press banca",
-      "Press militar",
-      "Remo con barra",
-      "Dominada",
+      "Back Squat",
+      "Conventional Deadlift",
+      "Bench Press",
+      "Overhead Press",
+      "Barbell Row",
+      "Pull-up",
     ]) {
       expect(names).toContain(required);
+    }
+  });
+
+  it("entries no longer carry an `alias` field (0044 simplification)", () => {
+    // 0043 had a `alias` field for the Spanish→English chip label; 0044
+    // moved to English-only and the alias went away.
+    for (const e of TYPICAL_EXERCISES) {
+      expect((e as { alias?: unknown }).alias).toBeUndefined();
     }
   });
 });
@@ -67,7 +83,7 @@ describe("TYPICAL_EXERCISES — catalog invariants", () => {
 describe("getTypicalExerciseNames", () => {
   it("returns the canonical names in catalog order", () => {
     const names = getTypicalExerciseNames();
-    expect(names[0]).toBe("Sentadilla trasera");
+    expect(names[0]).toBe("Back Squat");
     expect(names).toEqual(TYPICAL_EXERCISES.map((e) => e.name));
   });
 
@@ -80,32 +96,23 @@ describe("getTypicalExerciseNames", () => {
 
 describe("findTypicalByName", () => {
   it("resolves a canonical name verbatim", () => {
-    const found = findTypicalByName("Sentadilla trasera");
-    expect(found?.name).toBe("Sentadilla trasera");
-    expect(found?.alias).toBe("Back Squat");
+    const found = findTypicalByName("Back Squat");
+    expect(found?.name).toBe("Back Squat");
     expect(found?.category).toBe("squat");
   });
 
   it("resolves case-insensitively", () => {
-    const found = findTypicalByName("PRESS banca");
-    expect(found?.name).toBe("Press banca");
+    const found = findTypicalByName("BENCH press");
+    expect(found?.name).toBe("Bench Press");
   });
 
   it("resolves with surrounding whitespace", () => {
-    const found = findTypicalByName("  press militar  ");
-    expect(found?.name).toBe("Press militar");
-  });
-
-  it("does NOT match by English alias — only the canonical Spanish name wins", () => {
-    // The coach might type "Back Squat" but the chip-row "active" state
-    // only highlights when the input matches the canonical Spanish name.
-    // This is intentional: the alias is a display hint, not a synonym.
-    const found = findTypicalByName("Back Squat");
-    expect(found).toBeUndefined();
+    const found = findTypicalByName("  overhead PRESS  ");
+    expect(found?.name).toBe("Overhead Press");
   });
 
   it("returns undefined for an unknown name", () => {
-    expect(findTypicalByName("Snatch con banda")).toBeUndefined();
+    expect(findTypicalByName("Snatch with band")).toBeUndefined();
   });
 
   it("returns undefined for empty / whitespace-only input", () => {
@@ -117,26 +124,26 @@ describe("findTypicalByName", () => {
 describe("mergeTypicalAndHistory", () => {
   it("puts typical names first, then history-only names", () => {
     const merged = mergeTypicalAndHistory(
-      ["Sentadilla trasera", "Press banca"],
-      ["Press banca", "Back Squat"],
+      ["Back Squat", "Bench Press"],
+      ["Bench Press", "Pull-through"],
     );
-    expect(merged).toEqual(["Sentadilla trasera", "Press banca", "Back Squat"]);
+    expect(merged).toEqual(["Back Squat", "Bench Press", "Pull-through"]);
   });
 
   it("dedupes case-insensitively, keeping the first occurrence", () => {
     const merged = mergeTypicalAndHistory(
-      ["Press banca"],
-      ["press BANCA", "Back Squat"],
+      ["Bench Press"],
+      ["bench PRESS", "Pull-up"],
     );
-    expect(merged).toEqual(["Press banca", "Back Squat"]);
+    expect(merged).toEqual(["Bench Press", "Pull-up"]);
   });
 
   it("drops empty and whitespace-only entries", () => {
     const merged = mergeTypicalAndHistory(
-      ["Sentadilla trasera", "", "   "],
-      ["", "Press banca"],
+      ["Back Squat", "", "   "],
+      ["", "Bench Press"],
     );
-    expect(merged).toEqual(["Sentadilla trasera", "Press banca"]);
+    expect(merged).toEqual(["Back Squat", "Bench Press"]);
   });
 
   it("returns an empty array when both inputs are empty", () => {
@@ -144,7 +151,7 @@ describe("mergeTypicalAndHistory", () => {
   });
 
   it("trims surrounding whitespace from each entry", () => {
-    const merged = mergeTypicalAndHistory(["  Press banca  "], []);
-    expect(merged).toEqual(["Press banca"]);
+    const merged = mergeTypicalAndHistory(["  Bench Press  "], []);
+    expect(merged).toEqual(["Bench Press"]);
   });
 });

@@ -1,21 +1,23 @@
 /**
- * Curated catalog of typical barbell / strength training exercises (issue 0043).
+ * Curated catalog of typical barbell / strength training exercises (issue 0043,
+ * revised by issue 0044).
  *
- * This is a static, code-defined list — not persisted. The intent is to give
- * the coach a one-click "obvious" name when saving a record from the weight
- * calculator, so the input does not start empty. The coach can still type any
- * freeform name; this catalog is a hint, not a constraint.
+ * This is a static, code-defined list — not persisted. Its sole purpose in the
+ * current scope is to **seed the `<datalist>` autocomplete** of the weight
+ * calculator's save form with a sensible list of common lifts, so that the
+ * coach gets useful suggestions even when their history is empty.
  *
- * Shape: each entry has a canonical Spanish `name` (the string that gets
- * persisted when the coach picks the chip) and an optional `alias` in
- * English (rendered in the chip label alongside the Spanish name). The
- * `category` field is recorded for a future grouping surface and is
- * exported as a literal union so it can be type-narrowed at use sites.
+ * As of 0044 the visible "chips" row in the form is driven by the coach's own
+ * favorites (see `lib/calculator/favorites.ts`), not by this catalog. The
+ * catalog still feeds the datalist, so the canonical names here are what
+ * coaches see when they start typing in the empty form.
  *
- * The list is intentionally limited to ~25 compound + common accessory
- * movements that any coach who trains with a barbell would recognize.
- * Specialty / niche lifts are intentionally excluded — they belong to
- * follow-up edits, not the MVP.
+ * Shape: each entry has a canonical English `name` (the string the form will
+ * match against) and a `category` for a future grouping surface. Names use
+ * the standard English stronglifting / powerlifting nomenclature — this is
+ * the same vocabulary the existing placeholder ("Ej. Back Squat") already
+ * invites, and the field's `dedupeExercises` makes capitalization tolerant
+ * regardless.
  */
 export type ExerciseCategory =
   | "squat"
@@ -27,10 +29,8 @@ export type ExerciseCategory =
   | "accessory";
 
 export interface TypicalExercise {
-  /** Canonical Spanish name. This is the string persisted to the record. */
+  /** Canonical English name. This is the string matched against typed input. */
   name: string;
-  /** English alias (rendered in parentheses in the chip label). */
-  alias?: string;
   /** Coarse category for future grouping. Not surfaced in the UI yet. */
   category: ExerciseCategory;
 }
@@ -39,47 +39,47 @@ export interface TypicalExercise {
 
 export const TYPICAL_EXERCISES: readonly TypicalExercise[] = [
   // Squat pattern
-  { name: "Sentadilla trasera", alias: "Back Squat", category: "squat" },
-  { name: "Sentadilla frontal", alias: "Front Squat", category: "squat" },
-  { name: "Sentadilla búlgara", alias: "Bulgarian Split Squat", category: "squat" },
-  { name: "Zancada", alias: "Lunge", category: "squat" },
+  { name: "Back Squat", category: "squat" },
+  { name: "Front Squat", category: "squat" },
+  { name: "Bulgarian Split Squat", category: "squat" },
+  { name: "Lunge", category: "squat" },
 
   // Hinge pattern
-  { name: "Peso muerto convencional", alias: "Deadlift", category: "hinge" },
-  { name: "Peso muerto sumo", alias: "Sumo Deadlift", category: "hinge" },
-  { name: "Peso muerto rumano", alias: "Romanian Deadlift", category: "hinge" },
+  { name: "Conventional Deadlift", category: "hinge" },
+  { name: "Sumo Deadlift", category: "hinge" },
+  { name: "Romanian Deadlift", category: "hinge" },
   { name: "Hip Thrust", category: "hinge" },
   { name: "Good Morning", category: "hinge" },
 
   // Push pattern (horizontal)
-  { name: "Press banca", alias: "Bench Press", category: "push" },
-  { name: "Press inclinado", alias: "Incline Bench Press", category: "push" },
-  { name: "Press declinado", alias: "Decline Bench Press", category: "push" },
-  { name: "Fondos", alias: "Dip", category: "push" },
-  { name: "Press con mancuernas", alias: "Dumbbell Press", category: "push" },
+  { name: "Bench Press", category: "push" },
+  { name: "Incline Bench Press", category: "push" },
+  { name: "Decline Bench Press", category: "push" },
+  { name: "Dip", category: "push" },
+  { name: "Dumbbell Bench Press", category: "push" },
 
   // Overhead
-  { name: "Press militar", alias: "Overhead Press", category: "overhead" },
+  { name: "Overhead Press", category: "overhead" },
 
   // Pull pattern
-  { name: "Remo con barra", alias: "Barbell Row", category: "pull" },
-  { name: "Remo Pendlay", alias: "Pendlay Row", category: "pull" },
-  { name: "Dominada", alias: "Pull-up", category: "pull" },
-  { name: "Jalón al pecho", alias: "Lat Pulldown", category: "pull" },
+  { name: "Barbell Row", category: "pull" },
+  { name: "Pendlay Row", category: "pull" },
+  { name: "Pull-up", category: "pull" },
+  { name: "Lat Pulldown", category: "pull" },
 
   // Olympic
-  { name: "Cargada", alias: "Power Clean", category: "olympic" },
-  { name: "Envión", alias: "Snatch", category: "olympic" },
+  { name: "Power Clean", category: "olympic" },
+  { name: "Power Snatch", category: "olympic" },
 
   // Accessory
-  { name: "Curl con barra", alias: "Barbell Curl", category: "accessory" },
-  { name: "Encogimiento", alias: "Shrug", category: "accessory" },
+  { name: "Barbell Curl", category: "accessory" },
+  { name: "Barbell Shrug", category: "accessory" },
 ] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Returns the canonical Spanish names of the typical exercises, in catalog
+ * Returns the canonical English names of the typical exercises, in catalog
  * order. Used to seed the `<datalist>` of the save-record form alongside the
  * coach's own history.
  */
@@ -89,12 +89,9 @@ export function getTypicalExerciseNames(): string[] {
 
 /**
  * Resolves a (possibly-typed) name to its typical exercise entry, comparing
- * case-insensitively against the canonical Spanish `name`. Returns `undefined`
- * when the input does not match any typical — including when the input is
- * empty or contains only whitespace.
- *
- * Used by the chip row to decide which chip should render as "active" given
- * the current value of the exercise input.
+ * case-insensitively against the canonical `name`. Returns `undefined` when
+ * the input does not match any typical — including when the input is empty
+ * or contains only whitespace.
  */
 export function findTypicalByName(name: string): TypicalExercise | undefined {
   const needle = name.trim().toLowerCase();
@@ -106,7 +103,7 @@ export function findTypicalByName(name: string): TypicalExercise | undefined {
  * Merges two name lists into a single deduped list, preserving the order of
  * the first occurrence of each case-insensitive key. The first list wins on
  * ties — by design, this lets the caller pass typical names first so the
- * canonical Spanish spelling always precedes any freeform variant the coach
+ * canonical English spelling always precedes any freeform variant the coach
  * may have previously saved.
  *
  * Empty / whitespace-only entries are dropped from the output.
