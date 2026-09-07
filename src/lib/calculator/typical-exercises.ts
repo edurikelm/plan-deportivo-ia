@@ -51,15 +51,14 @@ export const TYPICAL_EXERCISES: readonly TypicalExercise[] = [
   { name: "Hip Thrust", category: "hinge" },
   { name: "Good Morning", category: "hinge" },
 
-  // Push pattern (horizontal)
+  // Push pattern (horizontal). Thruster sits at the end — it's a front
+  // squat + push press compound whose dominant pattern is the press.
   { name: "Bench Press", category: "push" },
   { name: "Incline Bench Press", category: "push" },
   { name: "Decline Bench Press", category: "push" },
   { name: "Dip", category: "push" },
   { name: "Dumbbell Bench Press", category: "push" },
-
-  // Overhead
-  { name: "Overhead Press", category: "overhead" },
+  { name: "Thruster", category: "push" },
 
   // Pull pattern
   { name: "Barbell Row", category: "pull" },
@@ -67,9 +66,22 @@ export const TYPICAL_EXERCISES: readonly TypicalExercise[] = [
   { name: "Pull-up", category: "pull" },
   { name: "Lat Pulldown", category: "pull" },
 
-  // Olympic
+  // Overhead. Overhead Press is the pure press; Push Press adds leg
+  // drive; Strict Press is the no-leg-drive version.
+  { name: "Overhead Press", category: "overhead" },
+  { name: "Push Press", category: "overhead" },
+  { name: "Strict Press", category: "overhead" },
+
+  // Olympic — the full family of clean, jerk, and snatch variations.
+  // Ordered from receiving-position progression to the complete lifts.
   { name: "Power Clean", category: "olympic" },
+  { name: "Squat Clean", category: "olympic" },
+  { name: "Hang Clean", category: "olympic" },
+  { name: "Clean and Jerk", category: "olympic" },
   { name: "Power Snatch", category: "olympic" },
+  { name: "Snatch", category: "olympic" },
+  { name: "Push Jerk", category: "olympic" },
+  { name: "Split Jerk", category: "olympic" },
 
   // Accessory
   { name: "Barbell Curl", category: "accessory" },
