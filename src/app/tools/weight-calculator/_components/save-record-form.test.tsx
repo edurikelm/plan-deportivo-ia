@@ -399,4 +399,26 @@ describe("SaveRecordForm — issue 0044 favorites", () => {
       "Pull-through with band",
     );
   });
+
+  it("takes the chip row out of the tab order so the exercise input is the first focusable (0046 M4)", () => {
+    // Two favorites → four chip buttons (body + × per chip). All of them
+    // are keyboard-skippable; the coach tabs straight from the previous
+    // surface into the exercise input.
+    addFavorite("Back Squat");
+    addFavorite("Bench Press");
+    render(<SaveRecordForm {...defaultProps} />);
+
+    const group = screen.getByRole("group", { name: "Ejercicios favoritos" });
+    const chipButtons = within(group).getAllByRole("button");
+    expect(chipButtons.length).toBe(4); // 2 chips × (body + ×)
+    for (const btn of chipButtons) {
+      expect(btn).toHaveAttribute("tabindex", "-1");
+    }
+
+    // The exercise input is the natural first focusable in the form
+    // (no tabindex override) so the tab order is: previous surface →
+    // exercise input → reps → 1RM → favorite → cancel → save.
+    const exerciseInput = screen.getByPlaceholderText("Ej. Back Squat");
+    expect(exerciseInput).not.toHaveAttribute("tabindex");
+  });
 });
