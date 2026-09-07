@@ -204,7 +204,7 @@ export function SaveRecordForm({
       role="region"
       aria-label="Guardar carga con etiqueta"
       onSubmit={handleSubmit}
-      className="border border-hairline rounded-none bg-popover p-3 space-y-2"
+      className="border border-hairline rounded-none bg-popover p-4 space-y-3"
     >
       {favorites.length > 0 && (
         <FavoriteExerciseChips
@@ -217,7 +217,7 @@ export function SaveRecordForm({
       <div className="flex items-center gap-2">
         <label
           htmlFor={`${listId}-input`}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-mute shrink-0"
         >
           Ejercicio
         </label>
@@ -232,7 +232,7 @@ export function SaveRecordForm({
           value={exercise}
           onChange={(e) => setExercise(e.target.value)}
           aria-label="Nombre del ejercicio"
-          className="font-mono text-sm flex-1 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+          className="numeric flex-1 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
         />
       </div>
 
@@ -242,10 +242,10 @@ export function SaveRecordForm({
         ))}
       </datalist>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2">
         <label
           htmlFor={repsId}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-mute shrink-0"
         >
           Reps
         </label>
@@ -264,11 +264,14 @@ export function SaveRecordForm({
           }}
           aria-label="Repeticiones"
           aria-invalid={!repsValid}
-          className="font-mono text-sm w-20 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none aria-[invalid=true]:border-signal"
+          className="numeric w-16 px-2 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none aria-[invalid=true]:border-signal"
         />
+      </div>
+
+      <div className="flex items-center gap-4 flex-wrap">
         <label
           htmlFor={flagId}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
         >
           <input
             id={flagId}
@@ -282,7 +285,7 @@ export function SaveRecordForm({
         </label>
         <label
           htmlFor={favoriteId}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-mute shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
         >
           <input
             id={favoriteId}
@@ -303,7 +306,7 @@ export function SaveRecordForm({
           size="sm"
           onClick={onCancel}
           aria-label="Cancelar"
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute hover:text-bone hover:bg-muted rounded-md h-8 px-2.5 gap-1.5"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-mute hover:text-bone hover:bg-muted rounded-md h-8 px-2.5 gap-1.5"
         >
           <X className="size-3.5" aria-hidden />
           Cancelar
@@ -312,7 +315,7 @@ export function SaveRecordForm({
           type="submit"
           disabled={!canSubmit}
           aria-label={submitting ? "Guardando carga" : "Guardar carga"}
-          className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="font-sans text-[0.6875rem] font-medium uppercase tracking-[0.08em] bg-signal text-signal-foreground hover:bg-signal-deep rounded-md h-8 px-3 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? (
             <>
