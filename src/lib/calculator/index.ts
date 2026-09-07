@@ -43,3 +43,9 @@ export {
   type ExerciseCategory,
   type TypicalExercise,
 } from "./typical-exercises";
+export {
+  addFavorite,
+  isFavorite,
+  removeFavorite,
+  toggleFavorite,
+} from "./favorites";

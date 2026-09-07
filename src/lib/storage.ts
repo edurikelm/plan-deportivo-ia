@@ -5,6 +5,11 @@ import {
   type CalculatorState,
 } from "./calculator/schemas";
 import { dedupeExercises } from "./calculator/history";
+import {
+  addFavorite as addFavoritePure,
+  isFavorite as isFavoritePure,
+  removeFavorite as removeFavoritePure,
+} from "./calculator/favorites";
 
 const SESSIONS_KEY = "pd:sessions";
 
@@ -350,6 +355,84 @@ export function getUniqueExercises(): string[] {
   return dedupeExercises(getRecords());
 }
 
+// ─── Favorites (coach's starred exercises) ───────────────────────────────────
+
+const FAVORITES_KEY = "pd:calculator-favorites";
+
+/**
+ * Parses a raw JSON string into the favorites list. Defensive read:
+ * corrupt or non-array JSON returns an empty list (the same contract as
+ * `parseRecordsFromRaw`).
+ */
+export function parseFavoritesFromRaw(raw: string): string[] {
+  try {
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.warn(
+        "[pd:calculator-favorites] expected array, discarding:",
+        typeof parsed,
+      );
+      return [];
+    }
+    return parsed.filter(
+      (entry): entry is string => typeof entry === "string",
+    );
+  } catch (err) {
+    console.warn("[pd:calculator-favorites] failed to parse:", err);
+    return [];
+  }
+}
+
+/**
+ * Returns the coach's favorited exercise names, most recently favorited
+ * first. The order is the natural "what I just starred is freshest" sort
+ * established by `addFavoritePure` in `calculator/favorites.ts`.
+ */
+export function getFavorites(): string[] {
+  let raw: string;
+  try {
+    raw = localStorage.getItem(FAVORITES_KEY) ?? "";
+  } catch (err) {
+    console.warn("[pd:calculator-favorites] failed to read:", err);
+    return [];
+  }
+  return parseFavoritesFromRaw(raw);
+}
+
+function setFavorites(list: string[]): void {
+  const json = JSON.stringify(list);
+  localStorage.setItem(FAVORITES_KEY, json);
+  dispatchStorage(FAVORITES_KEY, json);
+}
+
+/**
+ * Stars an exercise. If the name (case-insensitive, trim-aware) is
+ * already a favorite, it is moved to the head of the list so it appears
+ * as the most recent. Delegates the transformation to the pure helper
+ * so the storage layer stays a thin IO wrapper.
+ */
+export function addFavorite(name: string): void {
+  setFavorites(addFavoritePure(getFavorites(), name));
+}
+
+/**
+ * Removes an exercise from the favorites. No-op when the name is not a
+ * favorite.
+ */
+export function removeFavorite(name: string): void {
+  setFavorites(removeFavoritePure(getFavorites(), name));
+}
+
+/**
+ * Returns `true` if the given exercise name (case-insensitive, trim-aware)
+ * is currently a favorite. Useful for the form's "Agregar a favoritos"
+ * pre-check logic.
+ */
+export function isFavorite(name: string): boolean {
+  return isFavoritePure(getFavorites(), name);
+}
+
 /**
  * Returns the most recent **labeled** records (i.e. records with a non-null
  * `exercise`) from a raw JSON string, sorted by `createdAt` descending.
@@ -581,6 +664,7 @@ export type BackupShape = {
     sessions: SavedSession[];
     calculatorState: CalculatorState;
     calculatorRecords: SavedWeightRecord[];
+    calculatorFavorites: string[];
     lastInputs: Record<string, PersistedLastInput>;
   };
 };
@@ -597,6 +681,7 @@ export function exportAllData(): BackupShape {
       sessions: getSessions(),
       calculatorState: getCalculatorState(),
       calculatorRecords: getRecords(),
+      calculatorFavorites: getFavorites(),
       lastInputs: getAllLastInputs(),
     },
   };
@@ -656,6 +741,18 @@ export function importAllData(shape: BackupShape): ImportResult {
     );
   }
 
+  // Calculator favorites (added in 0044)
+  try {
+    setFavoritesRaw(shape.data.calculatorFavorites ?? []);
+    imported.push("calculatorFavorites");
+  } catch (err) {
+    errors.push(
+      isQuotaError(err)
+        ? "calculatorFavorites: almacenamiento lleno"
+        : `calculatorFavorites: ${err instanceof Error ? err.message : "error"}`,
+    );
+  }
+
   // Last inputs (per modality)
   for (const [modalityId, input] of Object.entries(shape.data.lastInputs)) {
     try {
@@ -681,6 +778,16 @@ function setRecordsRaw(records: SavedWeightRecord[]): void {
   const json = JSON.stringify(records);
   localStorage.setItem(RECORDS_KEY, json);
   dispatchStorage(RECORDS_KEY, json);
+}
+
+/**
+ * Internal write helper for `importAllData`. Sets the favorites key
+ * directly with a synthetic `storage` event so same-tab consumers refresh.
+ */
+function setFavoritesRaw(list: string[]): void {
+  const json = JSON.stringify(list);
+  localStorage.setItem(FAVORITES_KEY, json);
+  dispatchStorage(FAVORITES_KEY, json);
 }
 
 /**
