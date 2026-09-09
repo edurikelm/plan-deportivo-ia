@@ -19,6 +19,30 @@ Versionado: [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
 > y bumpear minor por ellas engaña al consumidor del versionado. Las umbrellas de infra van como
 > PATCH acumulado; las umbrellas con feature visible van como MINOR.
 
+## [0.3.0] - 2026-09-09
+
+Feature visible al usuario: nueva pestaña **"Por objetivo"** en `/tools/weight-calculator`. Resuelve la carga (barra + discos por lado) a partir de un peso objetivo — la operación inversa de la pestaña Manual. Cierra el issue **0048**.
+
+### Added
+
+- **Pestaña "Por objetivo"** en `/tools/weight-calculator`. Input: texto libre (`135`, `135 lb`, `60kg`, decimales). Output: `BarVisualization` reusada + breakdown + totales kg/lb. Cuando no hay match exacto, muestra dos cards lado a lado con el vecino más cercano por arriba y por abajo, cada uno con badge de diferencia `±X kg / ±Y lb`. Estado: error claro cuando el peso objetivo está por debajo de la barra.
+- **`src/lib/calculator/resolver.ts`** — pure function `resolveWeight({ target, barKg, inventory?, tolerance? })`. Stateless. Retorna `ResolveResult` con `status` (`"exact" | "approximated"`), `exact`, `above`, `below`, y `target` en kg+lb. Retorna `null` sólo cuando target < bar (negative per-side residual).
+- **Algoritmo**: greedy descendente para match exacto; bounded DFS sobre el inventario ordenado para encontrar vecinos cuando no hay exacto. Bounded por `ceil(perSideKg / smallestDisc) + 1` que para targets típicos corre en < 1 ms.
+- **Inventario por defecto** exportado: `DEFAULT_INVENTORY_KG = [25, 20, 15, 10, 5, 2.5, 1.25]`, `DEFAULT_INVENTORY_LB = [45, 35, 25, 10, 5, 2.5]`. Configurable por box queda para V2.
+- **`src/lib/calculator/resolver.test.ts`** — 22 tests cubriendo: match exacto, vecinos (arriba/abajo), target < bar, target = bar (bar only), unidades mixtas (target en lb con bar en kg), inventario custom, target entre dos tamaños de disco, target grande (200 kg), grouping de discos adyacentes, breakdown line, default inventory selection. Cobertura del módulo: 100% líneas/ramas.
+- **Convención de redondeo**: kg pasa por la función sin modificar (1.25 kg se queda 1.25 kg — el `Math.round` half-up de JS corrompería esto a 1.3). Sólo se redondea a 1 decimal al convertir a lb. Match con `formatWeightForDisplay` en el cliente.
+
+### Notes
+
+- **La pestaña no comparte state con Manual** (per CONTEXT.md update). No escribe en `pd:calculator-state` ni en `pd:calculator-records`. Cada visita arranca con `barKg = 20` y un input vacío.
+- **No hay botón "Aplicar a Manual"** en V1. Si el coach quiere persistir la carga, va a Manual y la compone manualmente. La feature es de consulta, no de mutación. (Discusión en grill-with-docs: se priorizó velocidad de respuesta para el caso "preparar el box" sobre integración con el flujo de carga persistente.)
+- **No se eligió DP/óptimo de conteo de discos.** Greedy + bounded DFS es suficiente para un box real (la mayoría de los pesos que importa se resuelven con greedy puro). Si en el futuro la UX pide "menos discos posibles", ahí se cambia el algoritmo en `resolver.ts` aislado del UI.
+- **No se eligió inventario configurable.** Configuración por box implica una sección nueva en `/settings`, migrar storage, y repensar la sincronización. Es scope suficiente para su propio umbrella. Por ahora, el default cubre el 95% de los boxes en Chile/US.
+
+### Upgrade / migration
+
+Sin breaking changes. La pestaña se suma a las existentes; Manual y (la desactivada) Foto no cambian. La autosave de `pd:calculator-state` no se ve afectada porque la pestaña no escribe a esa key.
+
 ## [0.2.6] - 2026-09-02
 
 Cierre del **umbrella 0026**: CI institucionalizado. 196 tests pasando, coverage gate activo, workflow de GitHub Actions ejecuta `lint + build + test:coverage` en cada PR y push a `master`.

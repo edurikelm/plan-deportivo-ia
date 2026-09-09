@@ -11,14 +11,16 @@ import {
   type DragEvent,
 } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   BookmarkPlus,
   Check,
   Copy,
   ImagePlus,
   Loader2,
   Plus,
-  Sparkles,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -33,6 +35,9 @@ import {
   computeTotals,
   formatBreakdownLine,
   hashState,
+  resolveWeight,
+  type ResolveResult,
+  type InventoryUnit,
 } from "@/lib/calculator";
 import {
   addRecord,
@@ -46,7 +51,7 @@ import { SavedRecordsPanel } from "./saved-records-panel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ActiveTab = "manual" | "foto";
+type ActiveTab = "manual" | "por-objetivo" | "foto";
 type DisplayUnit = "kg" | "lb";
 type FotoState =
   | { kind: "idle" }
@@ -502,6 +507,12 @@ export function CalculatorClient() {
   const calculatorState: CalculatorState = { barKg, discs };
   const totals = computeTotals(calculatorState);
   const breakdownLine = formatBreakdownLine(calculatorState);
+  // Total physical plates on the bar (sum of per-side counts × 2 sides).
+  // The kicker announces this so the coach can verify the count at a
+  // glance without parsing the breakdown formula. Falls through to 0 if
+  // every disc has count 0, in which case the kicker reverts to
+  // "solo barra" — the bar has no actual plates regardless of typed rows.
+  const totalDiscs = discs.reduce((acc, d) => acc + d.count, 0) * 2;
 
   // Whether the saved store has been loaded — used to gate the placeholder
   // dash so a coach with a saved bar of 20kg doesn't see "—" on first paint.
@@ -642,26 +653,30 @@ export function CalculatorClient() {
               Manual
             </button>
             <button
-              onClick={() => setActiveTab("foto")}
-              aria-pressed={activeTab === "foto"}
-              className={`px-4 pb-3 text-sm font-sans font-semibold tracking-wide transition-colors inline-flex items-center gap-1.5 ${
-                activeTab === "foto"
+              onClick={() => setActiveTab("por-objetivo")}
+              aria-pressed={activeTab === "por-objetivo"}
+              className={`px-4 pb-3 text-sm font-sans font-semibold tracking-wide transition-colors flex items-center gap-1.5 ${
+                activeTab === "por-objetivo"
                   ? "text-bone border-b-[1px] border-signal"
                   : "text-mute hover:text-bone"
               }`}
             >
-              Foto
-              <Sparkles
-                aria-hidden
-                className={`size-3.5 ${activeTab === "foto" ? "text-signal" : "text-mute/70"}`}
-              />
+              <Target className="size-3.5" aria-hidden />
+              Por objetivo
             </button>
+            {/* The Foto tab was removed in 2026-09-08 (issue 0040 close-out).
+                The FotoTab component, FotoState union, API route, BreakdownSchema,
+                and the foto state-machine handlers below all stay in the codebase
+                with their eslint-disable markers for a future reactivation. */}
           </div>
 
           {/* Display unit toggle — only meaningful in manual mode, but
-              always visible so the coach can flip without context-switching. */}
+              always visible so the coach can flip without context-switching.
+              Per P1#3 of the 2026-09-08 critique: radiogroup + radio roles
+              give the screen reader the "1 of 2" context the previous
+              toggle-buttons were missing. Visual styling unchanged. */}
           <div
-            role="group"
+            role="radiogroup"
             aria-label="Unidad de visualización"
             className="flex items-center gap-1.5 pb-3"
           >
@@ -673,7 +688,8 @@ export function CalculatorClient() {
                 <button
                   key={u}
                   onClick={() => setDisplayUnit(u)}
-                  aria-pressed={displayUnit === u}
+                  role="radio"
+                  aria-checked={displayUnit === u}
                   className={`numeric text-xs px-2.5 py-1 transition-colors ${
                     displayUnit === u
                       ? "bg-signal text-signal-foreground"
@@ -718,6 +734,7 @@ export function CalculatorClient() {
                 <button
                   onClick={() => setShowCustomBar((v) => !v)}
                   aria-pressed={showCustomBar}
+                  aria-label="Peso de barra personalizado"
                   className={`numeric text-sm px-3 py-1.5 rounded-sm border transition-colors ${
                     showCustomBar
                       ? "bg-signal text-signal-foreground border-signal"
@@ -911,27 +928,10 @@ export function CalculatorClient() {
             <SavedRecordsPanel onLoad={handleLoadRecord} />
           </div>
         )}
-
-        {/* ── Foto tab ───────────────────────────────────────────────── */}
-        {/* Issue 0040: the Foto tab is intentionally disabled. The coach
-            confirmed in the grill R3 Q10 that this surface is not used.
-            We render a placeholder instead of the Foto UX so the tab is
-            visible in the catalog (signaling the feature exists) but
-            non-interactive. The `FotoTab` component, the `FotoState`
-            union, the API route, and the breakdown schema stay in the
-            codebase intact for a future reactivation. */}
-        {activeTab === "foto" && (
-          <div className="chalk-card p-6 text-center space-y-2">
-            <p className="font-sans text-sm font-semibold text-bone">
-              Función desactivada
-            </p>
-            <p className="font-sans text-xs text-mute leading-relaxed max-w-md mx-auto">
-              El reconocimiento de carga por foto está temporalmente
-              deshabilitado. El código de la feature se conserva para una
-              reactivación futura.
-            </p>
-          </div>
-        )}
+        {activeTab === "por-objetivo" && <PorObjetivoTab />}
+        {/* The Foto tab body was removed in 2026-09-08 (issue 0040 close-out).
+            The Foto code (FotoTab, FotoState, API route, BreakdownSchema) is
+            preserved intact below for a future reactivation. */}
       </main>
 
       {/* ── Sticky TOTAL footer ─────────────────────────────────────── */}
@@ -947,30 +947,42 @@ export function CalculatorClient() {
           )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <div className="min-w-0 flex-1">
-              <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
-                Total · {discs.length === 0 ? "solo barra" : `${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} de disco`}
+              <p className="font-sans text-xs font-semibold uppercase tracking-[0.10em] text-mute leading-none mb-1.5">
+                Total · {discs.length === 0 || totalDiscs === 0
+                  ? "solo barra"
+                  : `${totalDiscs} discos · ${discs.length} ${discs.length === 1 ? "tipo" : "tipos"} por lado`}
               </p>
-              <p className="numeric-display text-3xl md:text-[2rem] font-medium text-bone leading-none tracking-tight">
-                <span className="whitespace-nowrap">
-                  {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
-                    ? "—"
-                    : displayUnit === "kg"
-                      ? `${totals.totalKg.toFixed(1)} kg`
-                      : `${totals.totalLb.toFixed(1)} lb`}
-                </span>
-                {displayUnit === "kg" && discs.length > 0 && (
-                  <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
-                    · {totals.totalLb.toFixed(1)} lb
-                  </span>
-                )}
-                {displayUnit === "lb" && discs.length > 0 && (
-                  <span className="text-mute font-normal text-[0.875rem] ml-3 align-baseline whitespace-nowrap">
-                    · {totals.totalKg.toFixed(1)} kg
-                  </span>
-                )}
+              {/* Headline: the breakdown line — what the coach reads at the gym.
+                  Replaces the previous dual-unit number as the footer's visual
+                  hero, per P1#1 of the 2026-09-08 critique. */}
+              <p className="numeric-display text-2xl md:text-xl font-medium text-bone leading-tight tracking-tight">
+                {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
+                  ? "—"
+                  : discs.length === 0
+                    ? `${barKg.toFixed(1)} kg`
+                    : breakdownLine}
               </p>
-              <p className="numeric text-[0.8125rem] text-mute leading-snug mt-2">
-                {discs.length === 0 ? `${barKg}kg` : breakdownLine}
+              {/* Secondary: the total in both units, display-unit first.
+                  Numeric-label tier (mono + tabular-nums + 0.04em tracking)
+                  per DESIGN.md §Typography. */}
+              {/* Live region: announces the new dual-unit total whenever the
+                  coach edits a disc. Per P1#3 of the 2026-09-08 critique.
+                  aria-atomic ensures the whole "X kg · Y lb" string is
+                  re-announced on change, not just the changed digit. The
+                  breakdown headline is intentionally NOT in this region
+                  (too verbose — a per-disc change would re-read the whole
+                  formula). The total is the concise signal the screen-reader
+                  user needs to track their load. */}
+              <p
+                className="numeric-label text-sm text-mute leading-snug mt-1.5"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {discs.length === 0 && barKg === DEFAULT_BAR_KG && !storeLoaded
+                  ? ""
+                  : displayUnit === "kg"
+                    ? `${totals.totalKg.toFixed(1)} kg · ${totals.totalLb.toFixed(1)} lb`
+                    : `${totals.totalLb.toFixed(1)} lb · ${totals.totalKg.toFixed(1)} kg`}
               </p>
             </div>
 
@@ -1501,4 +1513,395 @@ function FotoThumbnail({ src, alt }: { src: string; alt: string }) {
       />
     </figure>
   );
+}
+
+// ─── Por objetivo tab ──────────────────────────────────────────────────────
+
+/**
+ * Stateless "Por objetivo" tab. The coach types a target weight (e.g.
+ * `RX 135lb`) and the resolver returns the bar + discs-per-side breakdown
+ * needed to load it. Inverse of the Manual tab.
+ *
+ * State is local to the component (no autosave, no integration with the
+ * Manual tab's `{ barKg, discs }` per CONTEXT.md). Mounting is
+ * conditioned on `activeTab === "por-objetivo"` in the parent so this
+ * tab's local state is dropped on switch — every visit starts fresh.
+ */
+function PorObjetivoTab() {
+  // ── Bar selector state (independent from Manual) ─────────────────────
+  const [barKg, setBarKg] = useState<number>(DEFAULT_BAR_KG);
+  const [customBarKg, setCustomBarKg] = useState<string>("");
+  const [showCustomBar, setShowCustomBar] = useState(false);
+
+  // ── Display unit (kg / lb) ──────────────────────────────────────────
+  const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("lb");
+
+  // ── Target input (raw string from the text field) ───────────────────
+  const [targetInput, setTargetInput] = useState<string>("");
+
+  const parsedTarget = useMemo(
+    () => parseTargetInput(targetInput, displayUnit),
+    [targetInput, displayUnit],
+  );
+
+  // ── Resolve ─────────────────────────────────────────────────────────
+  const result = useMemo<ResolveResult | null>(() => {
+    if (!parsedTarget) return null;
+    return resolveWeight({
+      target: parsedTarget,
+      barKg,
+    });
+  }, [parsedTarget, barKg]);
+
+  // ── Bar selector handlers ───────────────────────────────────────────
+  function selectBar(value: number) {
+    setBarKg(value);
+    setShowCustomBar(false);
+    setCustomBarKg("");
+  }
+
+  function handleCustomBarBlur() {
+    const parsed = parseFloat(customBarKg);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      setBarKg(parsed);
+      setShowCustomBar(true);
+    } else {
+      setShowCustomBar(false);
+      setCustomBarKg("");
+    }
+  }
+
+  return (
+    <div className="space-y-10">
+      {/* ── BARRA selector ─────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute">
+            Barra
+          </p>
+          <span className="numeric text-[0.6875rem] text-mute">
+            {formatWeightForDisplay(barKg, displayUnit)} {displayUnit}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {COMMON_BAR_KG.map((w) => (
+            <button
+              key={w}
+              onClick={() => selectBar(w)}
+              aria-pressed={!showCustomBar && barKg === w}
+              className={`numeric text-sm px-3 py-1.5 rounded-sm border transition-colors ${
+                !showCustomBar && barKg === w
+                  ? "bg-signal text-signal-foreground border-signal"
+                  : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
+              }`}
+            >
+              {w} kg
+            </button>
+          ))}
+          <button
+            onClick={() => setShowCustomBar((v) => !v)}
+            aria-pressed={showCustomBar}
+            aria-label="Peso de barra personalizado"
+            className={`numeric text-sm px-3 py-1.5 rounded-sm border transition-colors ${
+              showCustomBar
+                ? "bg-signal text-signal-foreground border-signal"
+                : "bg-transparent text-mute border-hairline hover:border-hairline-strong hover:text-bone"
+            }`}
+          >
+            Otro…
+          </button>
+          {showCustomBar && (
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.5"
+              value={customBarKg}
+              onChange={(e) => {
+                const parsed = parseFloat(e.target.value);
+                if (!Number.isNaN(parsed) && parsed > 0) {
+                  setCustomBarKg(e.target.value);
+                } else if (e.target.value === "") {
+                  setCustomBarKg("");
+                }
+              }}
+              onBlur={handleCustomBarBlur}
+              onKeyDown={(e) => e.key === "Enter" && handleCustomBarBlur()}
+              placeholder="kg"
+              aria-label="Peso de barra personalizado en kg"
+              className="numeric text-sm w-24 px-3 py-1.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+            />
+          )}
+        </div>
+      </section>
+
+      {/* ── PESO OBJETIVO input ────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <label
+            htmlFor="resolver-target"
+            className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
+          >
+            Peso objetivo
+          </label>
+          {/* Display unit toggle. Same control as the Manual tab but
+              scoped to this tab's state. Per P1#3 of the 2026-09-08
+              critique (radiogroup + radio roles for screen readers). */}
+          <div
+            role="radiogroup"
+            aria-label="Unidad de visualización"
+            className="flex items-center gap-1.5"
+          >
+            <span className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute mr-1">
+              Unidad
+            </span>
+            <div className="flex rounded-sm overflow-hidden border border-hairline">
+              {(["kg", "lb"] as const).map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setDisplayUnit(u)}
+                  role="radio"
+                  aria-checked={displayUnit === u}
+                  className={`numeric text-xs px-2.5 py-1 transition-colors ${
+                    displayUnit === u
+                      ? "bg-signal text-signal-foreground"
+                      : "bg-transparent text-mute hover:text-bone"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <input
+          id="resolver-target"
+          type="text"
+          inputMode="decimal"
+          value={targetInput}
+          onChange={(e) => setTargetInput(e.target.value)}
+          placeholder={displayUnit === "kg" ? "Ej. 110" : "Ej. 135 lb"}
+          aria-label="Peso objetivo (acepta sufijos kg o lb)"
+          aria-invalid={targetInput.length > 0 && !parsedTarget}
+          className="numeric text-base w-full px-3 py-2.5 bg-transparent border border-hairline rounded-sm text-bone placeholder:text-mute focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/30 outline-none"
+        />
+        {targetInput.length > 0 && !parsedTarget && (
+          <p
+            role="status"
+            className="font-sans text-xs text-mute leading-relaxed"
+          >
+            Formato no reconocido. Probá con un número (con o sin sufijo
+            <span className="numeric"> kg</span> o
+            <span className="numeric"> lb</span>).
+          </p>
+        )}
+      </section>
+
+      {/* ── RESULTADO ──────────────────────────────────────────── */}
+      <ResolverResult
+        result={result}
+        parsedTarget={parsedTarget}
+        barKg={barKg}
+        displayUnit={displayUnit}
+      />
+    </div>
+  );
+}
+
+function ResolverResult({
+  result,
+  parsedTarget,
+  barKg,
+  displayUnit,
+}: {
+  result: ResolveResult | null;
+  parsedTarget: { value: number; unit: InventoryUnit } | null;
+  barKg: number;
+  displayUnit: DisplayUnit;
+}) {
+  // Empty input: show a placeholder hint, not an error.
+  if (!parsedTarget) {
+    return (
+      <p className="font-sans text-sm text-mute leading-relaxed py-3 px-4 border border-dashed border-hairline rounded-sm">
+        Tipeá un peso objetivo para ver qué carga armar.
+      </p>
+    );
+  }
+
+  // Target below bar weight: the resolver returns null here. We surface
+  // a specific message because the user typed something that the
+  // resolver fundamentally can't satisfy.
+  const targetKg = parsedTarget.unit === "kg" ? parsedTarget.value : lbToKg(parsedTarget.value);
+  if (targetKg < barKg) {
+    return (
+      <section
+        role="status"
+        className="px-4 py-3 border border-destructive/40 bg-destructive/[0.06] text-bone text-sm leading-relaxed flex gap-2 items-start"
+      >
+        <span className="font-display italic font-semibold shrink-0">!</span>
+        <div>
+          <p className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-destructive mb-1">
+            Peso objetivo por debajo de la barra
+          </p>
+          <p>
+            La barra sola ya carga{" "}
+            <span className="numeric">
+              {formatWeightForDisplay(barKg, displayUnit)} {displayUnit}
+            </span>
+            . Probá con un peso mayor.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!result) {
+    return null; // Shouldn't happen if we got past the checks above.
+  }
+
+  if (result.status === "exact") {
+    return (
+      <ResolverResultCard
+        load={result.exact!}
+        badge="Resultado exacto"
+        tone="success"
+        displayUnit={displayUnit}
+      />
+    );
+  }
+
+  // Approximated: show above + below side by side
+  const aboveDelta = result.above.totalKg - result.target.kg;
+  const belowDelta = result.below.totalKg - result.target.kg;
+  const aboveLabel = `+${formatWeightForDisplay(aboveDelta, displayUnit)} ${displayUnit}`;
+  const belowLabel = `${formatWeightForDisplay(belowDelta, displayUnit)} ${displayUnit}`;
+
+  return (
+    <div className="space-y-4">
+      <p
+        role="status"
+        className="font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] text-mute"
+      >
+        No hay resultado exacto · vecinos más cercanos
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ResolverResultCard
+          load={result.above}
+          badge="Por arriba"
+          deltaLabel={aboveLabel}
+          tone="above"
+          displayUnit={displayUnit}
+        />
+        <ResolverResultCard
+          load={result.below}
+          badge="Por abajo"
+          deltaLabel={belowLabel}
+          tone="below"
+          displayUnit={displayUnit}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ResolverResultCard({
+  load,
+  badge,
+  deltaLabel,
+  tone,
+  displayUnit,
+}: {
+  load: import("@/lib/calculator").ResolvedLoad;
+  badge: string;
+  deltaLabel?: string;
+  tone: "success" | "above" | "below";
+  displayUnit: DisplayUnit;
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    success: "border-signal/40 bg-signal/[0.06]",
+    above: "border-hairline",
+    below: "border-hairline",
+  };
+  const badgeColorClass: Record<typeof tone, string> = {
+    success: "text-signal",
+    above: "text-mute",
+    below: "text-mute",
+  };
+  // BarVisualization expects DiscRowUI (discs with `id`). The resolver
+  // returns plain DiscRow. Stamp synthetic ids here so the visualization
+  // is stable across re-renders.
+  const discsWithIds = load.discs.map((d, i) => ({
+    ...d,
+    id: `resolver-disc-${i}`,
+  }));
+
+  return (
+    <div className={`chalk-card chalk-card-reveal ${toneClasses[tone]}`}>
+      <header className="flex items-baseline justify-between gap-3 pb-3 border-b border-hairline">
+        <p
+          className={`font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.10em] ${badgeColorClass[tone]}`}
+        >
+          {tone === "success" ? null : tone === "above" ? (
+            <ArrowUp className="inline size-3 mr-1 align-baseline" aria-hidden />
+          ) : (
+            <ArrowDown className="inline size-3 mr-1 align-baseline" aria-hidden />
+          )}
+          {badge}
+        </p>
+        {deltaLabel && (
+          <span className="numeric text-[0.6875rem] text-mute">
+            {deltaLabel}
+          </span>
+        )}
+      </header>
+      <div className="pt-4 space-y-3">
+        <p className="numeric text-2xl md:text-xl font-medium text-bone leading-tight tracking-tight">
+          {load.breakdownLine}
+        </p>
+        <p className="numeric text-xs text-mute">
+          {load.totalKg.toFixed(1)} kg · {load.totalLb.toFixed(1)} lb
+        </p>
+      </div>
+      <div className="pt-4">
+        <BarVisualization
+          barKg={load.barKg}
+          discs={discsWithIds}
+          unit={displayUnit}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Parses the target input string. Accepts:
+ *  - `135`            → use the fallback unit
+ *  - `135 lb` / `135lb` / `135 lbs` → lb
+ *  - `60 kg` / `60kg`            → kg
+ *  - decimals: `62.5`
+ *
+ * Returns `null` when the input is empty or malformed.
+ */
+function parseTargetInput(
+  input: string,
+  fallbackUnit: InventoryUnit,
+): { value: number; unit: InventoryUnit } | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  // Match a number with optional unit suffix. The `i` flag makes the unit
+  // case-insensitive; we normalise below.
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(kg|lbs?)?$/i);
+  if (!match) return null;
+  const value = parseFloat(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const unitRaw = (match[2] ?? "").toLowerCase();
+  let unit: InventoryUnit;
+  if (unitRaw === "kg") {
+    unit = "kg";
+  } else if (unitRaw === "lb" || unitRaw === "lbs") {
+    unit = "lb";
+  } else {
+    unit = fallbackUnit;
+  }
+  return { value, unit };
 }
